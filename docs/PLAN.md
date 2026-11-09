@@ -379,9 +379,14 @@ Pipeline-Sniper-Tax/
 | 5 | Metadata-JSON, TS-smoketest, deploy op devnet en `register_strategy` | Een demo-launch met 90 s tax handelt via Pipeline op devnet |
 | 6 | Review: eigen audit-ronde, en eventueel extern | Daarna kiezen tussen een upgrade authority op een multisig en het programma bevriezen |
 
-> Opmerking over deze cloud-omgeving: `cargo` en `rustc` zijn aanwezig, maar de Solana CLI en
-> `cargo-build-sbf` niet. Die worden in fase 0 geïnstalleerd. Daarvoor is netwerktoegang tot de
-> Solana/Anza-releases nodig.
+### Voortgang
+
+- **Fase 0, deels klaar:** host-workspace, `rust-toolchain.toml` (1.97.1), CI voor de host-crates (fmt, clippy, tests, keypair-check) en een pre-commit-hook. De CI-job voor `cargo build-sbf` komt erbij zodra het programma bestaat (fase 2). De router-`.so` voor de testharness volgt in fase 3.
+- **Fase 1, klaar:** `crates/sniper-tax-math` met 11 unit-tests en 12 property-tests (2.000 gevallen per stuk) voor alle invarianten uit §9. Bewust afgebroken afrondingen worden door de tests gevangen.
+
+> Opmerking over de cloud-omgeving: Rust 1.97.1 en `cargo-build-sbf` 4.6.0 zijn geïnstalleerd.
+> Het bouwen van de gekloonde Pipeline-repo (voor de router-`.so`) werd door de sandbox geweigerd,
+> omdat dat externe code uitvoert. Daarvoor is in fase 3 toestemming van de eigenaar nodig.
 
 ## 11. Beslissingen
 
