@@ -11,8 +11,8 @@ cd "$(git rev-parse --show-toplevel)"
 RPC_URL="${RPC_URL:-https://api.devnet.solana.com}"
 # ProgramData account of PiPEf4fFBpYXCtgfiWgVWzZNXnq2wZ7bnXidJCTwf34 on devnet.
 PROGRAM_DATA="3dpKiLEDnLxCDBybnc5N9iVSLDWpvVBhE4971w59JETL"
-# Pinned version: deployed at devnet slot 520302321.
-EXPECTED_SHA256="251abb5c5d07443c6e78f00b2218fc438e4a7e3acf19babeca4751aab8815b49"
+# Pinned version: deployed at devnet slot 520510501 (a reproducible rebuild of the same router source as slot 520302321).
+EXPECTED_SHA256="57a93bbaef9d2156791567bb50fc253e2bda0c295c73b195ddd93e5406d9be6c"
 
 mkdir -p fixtures
 response=$(curl -sS --fail -m 60 -X POST "$RPC_URL" -H 'Content-Type: application/json' \
