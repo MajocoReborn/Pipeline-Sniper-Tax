@@ -9,6 +9,8 @@
 //! KEYPAIR=deployer.json TREASURY=<address> cargo run -p sniper-tax-devnet -- setup
 //! # Launch a demo token, snipe it at launch, then claim and sweep the tax.
 //! KEYPAIR=deployer.json cargo run -p sniper-tax-devnet -- demo [--wait]
+//! # Hand the config to a new admin and treasury (signed by the current admin).
+//! KEYPAIR=admin.json ADMIN=<address> TREASURY=<address> cargo run -p sniper-tax-devnet -- config
 //! ```
 //!
 //! `RPC_URL` defaults to `https://api.devnet.solana.com`. `--wait` also buys again after
@@ -61,7 +63,12 @@ fn run() -> Result<()> {
             setup(&rpc, &payer, treasury)
         }
         Some("demo") => demo(&rpc, &payer, args.iter().any(|a| a == "--wait")),
-        _ => Err("usage: sniper-tax-devnet setup | demo [--wait]".into()),
+        Some("config") => {
+            let admin = wallet_from_env("ADMIN")?;
+            let treasury = wallet_from_env("TREASURY")?;
+            hand_over_config(&rpc, &payer, admin, treasury)
+        }
+        _ => Err("usage: sniper-tax-devnet setup | demo [--wait] | config".into()),
     }
 }
 
@@ -122,6 +129,50 @@ fn setup(rpc: &Rpc, payer: &Keypair, treasury: Pubkey) -> Result<()> {
         let signature = rpc.send(&[initialize_config_ix(&admin, &args)], payer, &[])?;
         println!("config created: {}", explorer(&signature));
     }
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------------------
+// config
+// ---------------------------------------------------------------------------------------
+
+/// An address from the environment that a wallet can sign for. A program address (off the
+/// ed25519 curve) could never sign, so handing it control would lose that control for good.
+fn wallet_from_env(name: &str) -> Result<Pubkey> {
+    let value = std::env::var(name).map_err(|_| format!("set {name}"))?;
+    let key = Pubkey::from_str(&value).map_err(|e| format!("{name}: {e}"))?;
+    if !key.is_on_curve() {
+        return Err(format!("{name} {key} is not a wallet address"));
+    }
+    Ok(key)
+}
+
+/// Moves the config's admin and treasury, keeping its fees.
+fn hand_over_config(rpc: &Rpc, admin: &Keypair, new_admin: Pubkey, treasury: Pubkey) -> Result<()> {
+    let account = rpc
+        .account(&config_address())?
+        .ok_or("no protocol config")?;
+    let config: ProtocolConfig =
+        client::decode_account("ProtocolConfig", &account.1).ok_or("unreadable config")?;
+    let args = ConfigArgs {
+        admin: new_admin,
+        treasury,
+        protocol_tax_share_bps: config.protocol_tax_share_bps,
+        launch_fee_lamports: config.launch_fee_lamports,
+    };
+    let signature = rpc.send(&[update_config_ix(&admin.pubkey(), &args)], admin, &[])?;
+    let account = rpc
+        .account(&config_address())?
+        .ok_or("no protocol config")?;
+    let config: ProtocolConfig =
+        client::decode_account("ProtocolConfig", &account.1).ok_or("unreadable config")?;
+    if (config.admin, config.treasury) != (new_admin, treasury) {
+        return Err("the config did not change".into());
+    }
+    println!(
+        "config admin {new_admin}, treasury {treasury}: {}",
+        explorer(&signature)
+    );
     Ok(())
 }
 

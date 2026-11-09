@@ -38,7 +38,7 @@ Live op devnet, geregistreerd bij de Pipeline-router:
 |---|---|
 | Programma | [`EZwLuZ8mSiBoeKtbHwQK4kxCqqj4JuureT1kHpTK3i6b`](https://explorer.solana.com/address/EZwLuZ8mSiBoeKtbHwQK4kxCqqj4JuureT1kHpTK3i6b?cluster=devnet) |
 | Demo-pool (90 s tax-venster) | [`GeajhDYc24MyRecNv1a69nSsa2kdUtwbhLec6xpqVG3B`](https://explorer.solana.com/address/GeajhDYc24MyRecNv1a69nSsa2kdUtwbhLec6xpqVG3B?cluster=devnet) |
-| Devnet-treasury (alleen voor testen) | `HcQgsP4JmikD1SDGJAqLLa7K71CXcd7LaNACeeZbNZVh` |
+| Upgrade authority, config-admin en treasury | `DEwdbWGmGf6vdtRMkBXez2zJ71JbAaJ1DdD1s3bN8tYn` |
 
 In de demo betaalde een sniper die ongeveer 5 seconden na de launch kocht 93,5% tax. Een koop na het
 venster betaalde niets. Van de tax ging 90% naar de creator en 10% naar de treasury.
@@ -57,7 +57,8 @@ KEYPAIR=<wallet> TREASURY=<adres> cargo run -p sniper-tax-devnet -- setup
 KEYPAIR=<wallet> cargo run -p sniper-tax-devnet -- demo --wait
 ```
 
-`setup` registreert het programma bij de Pipeline-router en maakt de config aan. `demo` maakt
+`setup` registreert het programma bij de Pipeline-router en maakt de config aan. `config`
+(met `ADMIN` en `TREASURY`, getekend door de huidige admin) draagt het beheer over. `demo` maakt
 een testtoken, lanceert een pool in één transactie, laat een sniper direct na de launch kopen,
 koopt opnieuw na het venster (met `--wait`) en claimt en sweept de tax.
 

@@ -80,11 +80,21 @@ De ene mutant die overblijft is gelijkwaardig aan de originele code: het filter 
 | | |
 |---|---|
 | Programma | `EZwLuZ8mSiBoeKtbHwQK4kxCqqj4JuureT1kHpTK3i6b` (geregistreerd bij de Pipeline-router) |
-| Upgrade authority en config-admin | `8VKU74PrpBhaxHTqYLQTE82CLGMAHSJ4qESLSqww5pbg` |
-| Treasury (alleen voor test) | `HcQgsP4JmikD1SDGJAqLLa7K71CXcd7LaNACeeZbNZVh` |
+| Upgrade authority, config-admin en treasury | `DEwdbWGmGf6vdtRMkBXez2zJ71JbAaJ1DdD1s3bN8tYn` (wallet van de eigenaar, met de resterende devnet-SOL) |
 | Demo-pool | `GeajhDYc24MyRecNv1a69nSsa2kdUtwbhLec6xpqVG3B` |
 
-De keypairs van de upgrade authority en de treasury bestonden alleen in de oude cloud-sessie. Zonder die keys kan het programma op devnet niet meer geüpgraded worden en de config niet meer gewijzigd. Voor een nieuwe versie deploy je dan op een nieuw adres (en pas je de drie plekken uit valkuil 2 aan). De metadata-URI in de registratie wijst naar `main` en werkt pas na de merge van PR #1, en alleen als de repo publiek is.
+**Een nieuwe versie deployen.** Upgraden op hetzelfde adres kan alleen met de wallet van de eigenaar, en die key staat niet in een cloud-sessie.
+
+- De eigenaar doet de upgrade lokaal:
+
+  ```sh
+  solana program deploy programs/target/deploy/sniper_tax.so --program-id EZwLuZ8mSiBoeKtbHwQK4kxCqqj4JuureT1kHpTK3i6b --upgrade-authority <wallet> --url devnet
+  ```
+
+  Bij een upgrade is de programma-keypair niet nodig, alleen de upgrade authority.
+- Of een sessie deployt op een nieuw adres en past de drie plekken uit valkuil 2 aan.
+
+`crates/sniper-tax-devnet` heeft een `config`-commando om de admin en de treasury later weer over te dragen. De metadata-URI in de registratie wijst naar `main` en werkt pas na de merge van PR #1, en alleen als de repo publiek is.
 
 ## Kandidaten voor opschonen
 
