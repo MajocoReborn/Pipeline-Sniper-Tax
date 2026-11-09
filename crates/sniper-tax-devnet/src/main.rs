@@ -328,6 +328,8 @@ impl Rpc {
         let body =
             json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}).to_string();
         for attempt in 0..8 {
+            // The HTTP status goes on its own last line, so only a real rate limit or
+            // server error is retried.
             let output = Command::new("curl")
                 .args(["-sS", "-m", "60", "-X", "POST", &self.url])
                 .args([
@@ -335,16 +337,19 @@ impl Rpc {
                     "Content-Type: application/json",
                     "--data-binary",
                     &body,
+                    "-w",
+                    "\n%{http_code}",
                 ])
                 .output()
                 .map_err(|e| format!("curl: {e}"))?;
-            let text = String::from_utf8_lossy(&output.stdout);
-            if text.contains("429") || text.trim().is_empty() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let (text, status) = stdout.rsplit_once('\n').unwrap_or(("", &stdout));
+            if status == "429" || status.starts_with('5') || text.trim().is_empty() {
                 sleep(Duration::from_millis(500 << attempt));
                 continue;
             }
             let reply: Value =
-                serde_json::from_str(&text).map_err(|e| format!("{method}: {e}: {text}"))?;
+                serde_json::from_str(text).map_err(|e| format!("{method}: {e}: {text}"))?;
             if let Some(error) = reply.get("error") {
                 return Err(format!("{method}: {error}"));
             }
@@ -367,11 +372,13 @@ impl Rpc {
             .ok_or_else(|| "bad rent".into())
     }
 
+    /// The cluster's clock, as programs see it: the Clock sysvar's Unix timestamp.
     fn cluster_time(&self) -> Result<i64> {
-        let slot = self.call("getSlot", json!([{"commitment": "confirmed"}]))?;
-        self.call("getBlockTime", json!([slot]))?
-            .as_i64()
-            .ok_or_else(|| "no block time".into())
+        let clock = Pubkey::from_str("SysvarC1ock11111111111111111111111111111111")
+            .map_err(|e| e.to_string())?;
+        let (_, data) = self.account(&clock)?.ok_or("no clock sysvar")?;
+        let timestamp = data.get(32..40).ok_or("short clock sysvar")?;
+        Ok(i64::from_le_bytes(timestamp.try_into().unwrap()))
     }
 
     /// `(lamports, data)` of an account, if it exists.

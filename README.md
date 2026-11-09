@@ -32,6 +32,19 @@ cargo test --workspace                 # wiskunde-, property- en integratietests
 
 ## Devnet
 
+Live op devnet, geregistreerd bij de Pipeline-router:
+
+| | Adres |
+|---|---|
+| Programma | [`EZwLuZ8mSiBoeKtbHwQK4kxCqqj4JuureT1kHpTK3i6b`](https://explorer.solana.com/address/EZwLuZ8mSiBoeKtbHwQK4kxCqqj4JuureT1kHpTK3i6b?cluster=devnet) |
+| Demo-pool (90 s tax-venster) | [`GeajhDYc24MyRecNv1a69nSsa2kdUtwbhLec6xpqVG3B`](https://explorer.solana.com/address/GeajhDYc24MyRecNv1a69nSsa2kdUtwbhLec6xpqVG3B?cluster=devnet) |
+| Devnet-treasury (alleen voor testen) | `HcQgsP4JmikD1SDGJAqLLa7K71CXcd7LaNACeeZbNZVh` |
+
+In de demo betaalde een sniper die ongeveer 5 seconden na de launch kocht 93,5% tax. Een koop na het
+venster betaalde niets. Van de tax ging 90% naar de creator en 10% naar de treasury.
+
+Zelf deployen:
+
 Je hebt de Solana CLI 4.4 nodig en een wallet met ongeveer 6 devnet-SOL (via
 [faucet.solana.com](https://faucet.solana.com)). Het programma-adres in `declare_id!` hoort bij
 de keypair in `programs/target/deploy/`. Wie zelf deployt, maakt een eigen keypair en past het
