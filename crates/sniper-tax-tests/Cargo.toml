@@ -3,6 +3,7 @@ name = "sniper-tax-tests"
 version = "0.1.0"
 edition.workspace = true
 publish = false
+license = "Apache-2.0"
 description = "LiteSVM integration tests: the sniper-tax program against the real Pipeline router"
 
 [dependencies]

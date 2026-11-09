@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Fails if a tracked or staged JSON file looks like a Solana keypair (a JSON array of 64
 # byte values, as solana-keygen writes them). Run by the pre-commit hook and by CI.
+# Modeled on Pipeline's scripts/check-no-keypairs.sh (MetalLegBob/pipeline, Apache-2.0).
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 

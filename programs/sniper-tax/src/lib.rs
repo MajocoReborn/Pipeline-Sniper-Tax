@@ -10,7 +10,7 @@
 //! Lifecycle: anyone creates the pool through the router's `create_market` (the creator's
 //! address and the schedule are part of the pool's address); the creator then calls
 //! `launch`, which deposits both tokens and starts the tax clock. Both fit in one
-//! transaction. Design, constraints and threat model: docs/PLAN.md.
+//! transaction. Design, constraints and threat model: docs/PLAN.md. The Pipeline entry points follow Pipeline's reference strategy (`programs/test-strategy-cp` in MetalLegBob/pipeline, Apache-2.0).
 
 use anchor_lang::prelude::*;
 use anchor_lang::solana_program::program::set_return_data;

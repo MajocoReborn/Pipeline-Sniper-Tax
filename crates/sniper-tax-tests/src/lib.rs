@@ -5,6 +5,10 @@
 //! `programs/target/deploy` (`cd programs && cargo build-sbf`). Router instructions are
 //! built with Pipeline's own client; this program's instructions are encoded by hand, as
 //! any client would, so the tests also pin its wire format.
+//!
+//! Adapted in part from Pipeline's LiteSVM harness (`crates/pipeline-tests/tests/common/mod.rs`
+//! in MetalLegBob/pipeline, Apache-2.0): the native-mint and upgrade-authority helpers, mint
+//! and token-account setup, the transaction-size check and `assert_fails_with`.
 
 #![allow(clippy::result_large_err)]
 

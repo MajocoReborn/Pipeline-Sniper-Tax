@@ -3,6 +3,7 @@ name = "sniper-tax"
 version = "0.1.0"
 edition = "2021"
 publish = false
+license = "Apache-2.0"
 description = "Pipeline strategy: a launch pool whose buys pay a sniper tax that falls to zero"
 
 [lib]

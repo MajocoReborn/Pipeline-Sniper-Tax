@@ -63,3 +63,11 @@ koopt opnieuw na het venster (met `--wait`) en claimt en sweept de tax.
 
 Keypairs worden nooit gecommit: `scripts/check-no-keypairs.sh` en de pre-commit-hook
 (`git config core.hooksPath .githooks`) controleren dat.
+
+## Licentie
+
+Apache-2.0, zie [`LICENSE`](LICENSE). Copyright 2026 MajocoReborn.
+
+Delen van de testharness, de opbouw van de Pipeline-instructies in het programma en het
+keypair-checkscript zijn aangepast van [Pipeline](https://github.com/MetalLegBob/pipeline)
+(Apache-2.0). De bestanden zelf vermelden waar.
