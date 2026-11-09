@@ -385,6 +385,7 @@ Pipeline-Sniper-Tax/
 - **Fase 1, klaar:** `crates/sniper-tax-math` met 11 unit-tests en 12 property-tests (2.000 gevallen per stuk) voor alle invarianten uit §9. Bewust afgebroken afrondingen worden door de tests gevangen.
 - **Fase 2, klaar:** `programs/sniper-tax` (Anchor 1.2.2), devnet-programma-adres `EZwLuZ8mSiBoeKtbHwQK4kxCqqj4JuureT1kHpTK3i6b`. Vondst: de `transfer_checked`-CPI van `anchor-spl` 1.2.2 geeft geen transfer-hook-accounts door, dus het programma gebruikt een eigen helper.
 - **Fase 3, klaar:** `crates/sniper-tax-tests`, 24 LiteSVM-tests tegen de router-binary die live op devnet draait (`scripts/fetch-pipeline-router.sh`, vastgepind op sha256). Ze dekken §9 punt 1–13. Bij punt 3 controleren de tests de saldi in plaats van de `SwapEvent` te decoderen. Een swap gebruikt minder dan 80.000 compute units en een quote minder dan 50.000. Een bewust verwijderde A1-bescherming wordt door de tests gevangen.
+- **Fase 5, deels:** `metadata/sniper-tax.devnet.json` en `crates/sniper-tax-devnet` (`setup` registreert bij de router en maakt de config aan, `demo` doet een complete launch met sniper-koop, claim en sweep). De deploy op devnet wacht op devnet-SOL: de RPC-faucet is dicht, en faucet.solana.com vraagt een login.
 - **Fase 4, deels:** transfer-fee-tokens als launch-token en als quote-mint, en geweigerde mints (permanent delegate, freeze- en mint-authority) zijn getest. Transfer hooks nog niet: daarvoor is een klein test-hook-programma nodig.
 
 ## 11. Beslissingen

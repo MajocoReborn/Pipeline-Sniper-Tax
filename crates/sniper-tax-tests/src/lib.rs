@@ -373,6 +373,56 @@ impl Pool {
             AccountMeta::new(legs.output_vault, false),
         ]
     }
+
+    /// A swap through the router, from and to `trader`'s associated token accounts.
+    pub fn swap_ix(&self, trader: &Pubkey, side: Side, args: &client::SwapArgs) -> Instruction {
+        let legs = self.legs(side);
+        let accounts = client::SwapAccounts {
+            trader: *trader,
+            strategy_program: PROGRAM_ID,
+            market_state: self.address,
+            trader_input: pda::associated_token(trader, &legs.input_mint, &legs.input_program),
+            trader_output: pda::associated_token(trader, &legs.output_mint, &legs.output_program),
+            input_vault: legs.input_vault,
+            input_mint: legs.input_mint,
+            output_mint: legs.output_mint,
+            input_token_program: legs.input_program,
+            output_token_program: legs.output_program,
+            integrator_fee_account: None,
+            strategy_accounts: vec![AccountMeta::new(legs.output_vault, false)],
+            input_hook_accounts: vec![],
+        };
+        client::swap(&accounts, args)
+    }
+
+    /// `pipeline_quote`, for simulation. Only the market signer and the pool are read;
+    /// the other fixed accounts are placeholders.
+    pub fn quote_ix(
+        &self,
+        side: Side,
+        mode: TradeMode,
+        amount: u64,
+        trader: Option<Pubkey>,
+    ) -> Instruction {
+        let legs = self.legs(side);
+        let request = psi::TradeRequest {
+            mode,
+            input_index: legs.input_index,
+            output_index: legs.output_index,
+            amount,
+            trader: trader.map(|t| t.to_bytes()),
+            extra: vec![],
+        };
+        let mut accounts = vec![
+            AccountMeta::new_readonly(self.market, false),
+            AccountMeta::new_readonly(self.address, false),
+        ];
+        accounts.extend(std::iter::repeat_n(
+            AccountMeta::new_readonly(Pubkey::default(), false),
+            8,
+        ));
+        program_ix("pipeline_quote", &request, accounts)
+    }
 }
 
 pub fn exact_in(amount_in: u64, min_amount_out: u64) -> client::SwapArgs {
@@ -822,31 +872,7 @@ impl Env {
         side: Side,
         args: client::SwapArgs,
     ) -> TxResult {
-        let legs = pool.legs(side);
-        let accounts = client::SwapAccounts {
-            trader: trader.pubkey(),
-            strategy_program: PROGRAM_ID,
-            market_state: pool.address,
-            trader_input: pda::associated_token(
-                &trader.pubkey(),
-                &legs.input_mint,
-                &legs.input_program,
-            ),
-            trader_output: pda::associated_token(
-                &trader.pubkey(),
-                &legs.output_mint,
-                &legs.output_program,
-            ),
-            input_vault: legs.input_vault,
-            input_mint: legs.input_mint,
-            output_mint: legs.output_mint,
-            input_token_program: legs.input_program,
-            output_token_program: legs.output_program,
-            integrator_fee_account: None,
-            strategy_accounts: vec![AccountMeta::new(legs.output_vault, false)],
-            input_hook_accounts: vec![],
-        };
-        let ix = client::swap(&accounts, &args);
+        let ix = pool.swap_ix(&trader.pubkey(), side, &args);
         let trader = trader.insecure_clone();
         self.send(&[ix], &[&trader])
     }
@@ -873,25 +899,7 @@ impl Env {
         amount: u64,
         trader: Option<Pubkey>,
     ) -> Result<(psi::QuoteResult, u64), String> {
-        let legs = pool.legs(side);
-        let request = psi::TradeRequest {
-            mode,
-            input_index: legs.input_index,
-            output_index: legs.output_index,
-            amount,
-            trader: trader.map(|t| t.to_bytes()),
-            extra: vec![],
-        };
-        let placeholder = Pubkey::default();
-        let mut accounts = vec![
-            AccountMeta::new_readonly(pool.market, false),
-            AccountMeta::new_readonly(pool.address, false),
-        ];
-        accounts.extend(std::iter::repeat_n(
-            AccountMeta::new_readonly(placeholder, false),
-            8,
-        ));
-        let ix = program_ix("pipeline_quote", &request, accounts);
+        let ix = pool.quote_ix(side, mode, amount, trader);
         let tx = self.transaction(&[ix], &[]);
         match self.svm.simulate_transaction(tx) {
             Ok(info) => psi::QuoteResult::try_from_slice(&info.meta.return_data.data)

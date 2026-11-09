@@ -15,6 +15,8 @@ Werkt met SPL Token en Token-2022.
 | `crates/sniper-tax-math` | Pure wiskunde: tax-curve, tax-verdeling en constant-product-prijzen, met property-tests |
 | `programs/sniper-tax` | Het Anchor-programma: de Pipeline-strategy |
 | `crates/sniper-tax-tests` | Integratietests tegen de echte Pipeline-router van devnet |
+| `crates/sniper-tax-devnet` | Registratie, config en een demo-launch op devnet |
+| `metadata/sniper-tax.devnet.json` | Strategy-metadata voor Pipeline-terminals (devnet) |
 
 ## Bouwen en testen
 
@@ -27,6 +29,24 @@ Je hebt `cargo-build-sbf` 4.6.0 nodig (`cargo install cargo-build-sbf --version 
 scripts/fetch-pipeline-router.sh       # de router die live op devnet draait, naar fixtures/
 cargo test --workspace                 # wiskunde-, property- en integratietests
 ```
+
+## Devnet
+
+Je hebt de Solana CLI 4.4 nodig en een wallet met ongeveer 6 devnet-SOL (via
+[faucet.solana.com](https://faucet.solana.com)). Het programma-adres in `declare_id!` hoort bij
+de keypair in `programs/target/deploy/`. Wie zelf deployt, maakt een eigen keypair en past het
+adres aan in `programs/sniper-tax/src/lib.rs`, `crates/sniper-tax-tests/src/lib.rs` en de metadata.
+
+```sh
+solana program deploy programs/target/deploy/sniper_tax.so \
+  --program-id programs/target/deploy/sniper_tax-keypair.json --keypair <wallet> --url devnet
+KEYPAIR=<wallet> TREASURY=<adres> cargo run -p sniper-tax-devnet -- setup
+KEYPAIR=<wallet> cargo run -p sniper-tax-devnet -- demo --wait
+```
+
+`setup` registreert het programma bij de Pipeline-router en maakt de config aan. `demo` maakt
+een testtoken, lanceert een pool in één transactie, laat een sniper direct na de launch kopen,
+koopt opnieuw na het venster (met `--wait`) en claimt en sweept de tax.
 
 Keypairs worden nooit gecommit: `scripts/check-no-keypairs.sh` en de pre-commit-hook
 (`git config core.hooksPath .githooks`) controleren dat.

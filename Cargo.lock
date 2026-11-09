@@ -2357,6 +2357,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "149309498a5f7334b12ddae0cad8aba81ce785fe91755068867e017cf98fee46"
 
 [[package]]
+name = "sniper-tax-devnet"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "bincode",
+ "borsh",
+ "serde_json",
+ "sniper-tax-tests",
+ "solana-hash",
+ "solana-keypair",
+ "solana-signer",
+ "solana-system-interface",
+ "solana-transaction",
+ "spl-associated-token-account-interface",
+ "spl-token-2022-interface",
+]
+
+[[package]]
 name = "sniper-tax-math"
 version = "0.1.0"
 dependencies = [
