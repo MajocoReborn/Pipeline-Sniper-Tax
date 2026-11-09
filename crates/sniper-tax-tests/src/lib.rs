@@ -172,9 +172,13 @@ pub struct PoolOptions {
     pub token_permanent_delegate: bool,
     pub token_freeze_authority: bool,
     pub revoke_mint_authority: bool,
+    /// Token-2022 transfer hook on the launch token (the test hook's program ID).
+    pub token_transfer_hook: Option<Pubkey>,
     /// `None` uses wrapped SOL. `Some(fee)` uses a new Token-2022 quote mint, with a
     /// transfer fee if `fee` is set.
     pub custom_quote: Option<Option<(u16, u64)>>,
+    /// Token-2022 transfer hook on a custom quote mint.
+    pub quote_transfer_hook: Option<Pubkey>,
     pub tax_start_bps: u16,
     pub tax_end_bps: u16,
     pub tax_duration_secs: u32,
@@ -190,7 +194,9 @@ impl Default for PoolOptions {
             token_permanent_delegate: false,
             token_freeze_authority: false,
             revoke_mint_authority: true,
+            token_transfer_hook: None,
             custom_quote: None,
+            quote_transfer_hook: None,
             tax_start_bps: 9_900,
             tax_end_bps: 0,
             tax_duration_secs: 90,
@@ -380,7 +386,22 @@ impl Pool {
 
     /// A swap through the router, from and to `trader`'s associated token accounts.
     pub fn swap_ix(&self, trader: &Pubkey, side: Side, args: &client::SwapArgs) -> Instruction {
+        self.swap_ix_with_hooks(trader, side, args, vec![], vec![])
+    }
+
+    /// A swap with transfer-hook accounts: the output mint's go after the strategy's own
+    /// accounts, the input mint's are the router's `input_hook_accounts`.
+    pub fn swap_ix_with_hooks(
+        &self,
+        trader: &Pubkey,
+        side: Side,
+        args: &client::SwapArgs,
+        output_hooks: Vec<AccountMeta>,
+        input_hooks: Vec<AccountMeta>,
+    ) -> Instruction {
         let legs = self.legs(side);
+        let mut strategy_accounts = vec![AccountMeta::new(legs.output_vault, false)];
+        strategy_accounts.extend(output_hooks);
         let accounts = client::SwapAccounts {
             trader: *trader,
             strategy_program: PROGRAM_ID,
@@ -393,8 +414,8 @@ impl Pool {
             input_token_program: legs.input_program,
             output_token_program: legs.output_program,
             integrator_fee_account: None,
-            strategy_accounts: vec![AccountMeta::new(legs.output_vault, false)],
-            input_hook_accounts: vec![],
+            strategy_accounts,
+            input_hook_accounts: input_hooks,
         };
         client::swap(&accounts, args)
     }
@@ -634,9 +655,13 @@ impl Env {
         transfer_fee: Option<(u16, u64)>,
         permanent_delegate: bool,
         freeze_authority: bool,
+        transfer_hook: Option<Pubkey>,
     ) -> Pubkey {
         let mint = Keypair::new();
         let mut extensions = vec![];
+        if transfer_hook.is_some() {
+            extensions.push(ExtensionType::TransferHook);
+        }
         if transfer_fee.is_some() {
             extensions.push(ExtensionType::TransferFeeConfig);
         }
@@ -673,6 +698,17 @@ impl Env {
                 .unwrap(),
             );
         }
+        if let Some(hook) = transfer_hook {
+            ixs.push(
+                spl_token_2022_interface::extension::transfer_hook::instruction::initialize(
+                    token_program,
+                    &mint.pubkey(),
+                    None,
+                    Some(hook),
+                )
+                .unwrap(),
+            );
+        }
         if permanent_delegate {
             ixs.push(
                 spl_token_2022_interface::instruction::initialize_permanent_delegate(
@@ -694,7 +730,30 @@ impl Env {
             .unwrap(),
         );
         self.send(&ixs, &[&mint]).expect("create mint");
+        if let Some(hook) = transfer_hook {
+            let ix = test_hook::initialize_ix(&hook, &self.admin.pubkey(), &mint.pubkey());
+            self.send(&[ix], &[]).expect("initialize the test hook");
+        }
         mint.pubkey()
+    }
+
+    /// Loads the test transfer hook (`test-programs/test-hook`) and returns its ID.
+    pub fn load_test_hook(&mut self) -> Pubkey {
+        if self.svm.get_account(&test_hook::ID).is_none() {
+            self.svm
+                .add_program_from_file(
+                    test_hook::ID,
+                    repo_root().join("test-programs/target/deploy/test_hook.so"),
+                )
+                .expect("test hook binary: cd test-programs && cargo build-sbf");
+        }
+        test_hook::ID
+    }
+
+    /// How many transfers of `mint` the test hook has seen.
+    pub fn hook_count(&self, mint: &Pubkey) -> u64 {
+        let data = self.account_data(&test_hook::counter(mint));
+        u64::from_le_bytes(data[..8].try_into().expect("hook counter"))
     }
 
     /// Creates (idempotently) `owner`'s associated token account.
@@ -780,11 +839,19 @@ impl Env {
             options.token_transfer_fee,
             options.token_permanent_delegate,
             options.token_freeze_authority,
+            options.token_transfer_hook,
         );
         let (quote_mint, quote_program) = match options.custom_quote {
             None => (client::wallet::NATIVE_MINT, client::TOKEN_PROGRAM_ID),
             Some(fee) => (
-                self.create_mint(&client::TOKEN_2022_PROGRAM_ID, 9, fee, false, false),
+                self.create_mint(
+                    &client::TOKEN_2022_PROGRAM_ID,
+                    9,
+                    fee,
+                    false,
+                    false,
+                    options.quote_transfer_hook,
+                ),
                 client::TOKEN_2022_PROGRAM_ID,
             ),
         };
@@ -969,4 +1036,43 @@ pub fn assert_fails_with(result: TxResult, needle: &str) {
 /// `ceil(amount × bps / 10,000)`.
 pub fn ceil_bps(amount: u64, bps: u16) -> u64 {
     (u128::from(amount) * u128::from(bps)).div_ceil(10_000) as u64
+}
+
+/// Addresses and instructions of the test transfer hook (`test-programs/test-hook`), which
+/// counts every transfer of its mint in a counter account listed as its extra account.
+pub mod test_hook {
+    use super::*;
+
+    pub const ID: Pubkey = Pubkey::new_from_array([0x7e; 32]);
+
+    pub fn validation(mint: &Pubkey) -> Pubkey {
+        Pubkey::find_program_address(&[b"extra-account-metas", mint.as_ref()], &ID).0
+    }
+
+    pub fn counter(mint: &Pubkey) -> Pubkey {
+        Pubkey::find_program_address(&[b"counter", mint.as_ref()], &ID).0
+    }
+
+    pub fn initialize_ix(hook: &Pubkey, payer: &Pubkey, mint: &Pubkey) -> Instruction {
+        Instruction::new_with_bytes(
+            *hook,
+            b"cnthkini",
+            vec![
+                AccountMeta::new(*payer, true),
+                AccountMeta::new(validation(mint), false),
+                AccountMeta::new(counter(mint), false),
+                AccountMeta::new_readonly(*mint, false),
+                AccountMeta::new_readonly(client::SYSTEM_PROGRAM_ID, false),
+            ],
+        )
+    }
+
+    /// The accounts Token-2022 needs to run the hook for `mint`.
+    pub fn accounts(mint: &Pubkey) -> Vec<AccountMeta> {
+        vec![
+            AccountMeta::new_readonly(ID, false),
+            AccountMeta::new_readonly(validation(mint), false),
+            AccountMeta::new(counter(mint), false),
+        ]
+    }
 }

@@ -15,6 +15,7 @@ Werkt met SPL Token en Token-2022.
 | `crates/sniper-tax-math` | Pure wiskunde: tax-curve, tax-verdeling en constant-product-prijzen, met property-tests |
 | `programs/sniper-tax` | Het Anchor-programma: de Pipeline-strategy |
 | `crates/sniper-tax-tests` | Integratietests tegen de echte Pipeline-router van devnet |
+| `test-programs/test-hook` | Test-transfer-hook voor de integratietests |
 | `crates/sniper-tax-devnet` | Registratie, config en een demo-launch op devnet |
 | `metadata/sniper-tax.devnet.json` | Strategy-metadata voor Pipeline-terminals (devnet) |
 
@@ -26,6 +27,7 @@ Je hebt `cargo-build-sbf` 4.6.0 nodig (`cargo install cargo-build-sbf --version 
 
 ```sh
 (cd programs && cargo build-sbf)       # het programma, naar programs/target/deploy
+(cd test-programs && cargo build-sbf)  # de test-hook, naar test-programs/target/deploy
 scripts/fetch-pipeline-router.sh       # de router die live op devnet draait, naar fixtures/
 cargo test --workspace                 # wiskunde-, property- en integratietests
 ```

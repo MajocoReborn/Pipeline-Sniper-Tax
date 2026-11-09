@@ -24,7 +24,8 @@ en waar je op moet letten.
 |---|---|
 | `programs/sniper-tax` | Het Anchor 1.2.2-programma (de Pipeline-strategy). `lib.rs` (instructies en account-structs), `state.rs`, `policy.rs` (Token-2022-beleid), `token.rs` (transfer-helper), `errors.rs` |
 | `crates/sniper-tax-math` | Pure wiskunde: tax-curve, tax-verdeling en constant-product. Wordt door het programma gebruikt |
-| `crates/sniper-tax-tests` | LiteSVM-harness (`src/lib.rs`) en integratietests: `launch_pool.rs` (24), `extremes.rs` (4), `stress.rs` (2) |
+| `crates/sniper-tax-tests` | LiteSVM-harness (`src/lib.rs`) en integratietests: `launch_pool.rs` (24), `extremes.rs` (4), `stress.rs` (2), `transfer_hook.rs` (2) |
+| `test-programs/test-hook` | Test-transfer-hook die elke transfer telt, in een eigen workspace zodat hij de lockfile en de binary van het echte programma niet raakt |
 | `crates/sniper-tax-devnet` | Devnet-tool: `setup` (registreren en config) en `demo` (complete launch) |
 | `metadata/sniper-tax.devnet.json` | Strategy-metadata voor Pipeline-terminals |
 | `scripts/fetch-pipeline-router.sh` | Haalt de router-binary van devnet op, vastgepind op sha256, naar `fixtures/pipeline.so` |
@@ -35,6 +36,7 @@ en waar je op moet letten.
 ```sh
 cargo install cargo-build-sbf --version 4.6.0 --locked   # eenmalig; downloadt ~1,6 GB platform-tools
 (cd programs && cargo build-sbf)                         # programma -> programs/target/deploy
+(cd test-programs && cargo build-sbf)                    # test-hook -> test-programs/target/deploy
 scripts/fetch-pipeline-router.sh                         # router -> fixtures/pipeline.so (devnet-RPC nodig)
 cargo test --workspace                                   # alle tests, ~30 s
 cargo clippy --workspace --all-targets -- -D warnings
@@ -59,6 +61,7 @@ cargo mutants -p sniper-tax-math
 | `launch_pool` | 24 integratietests |
 | `extremes` | 4 tests |
 | `stress` | 2 tests |
+| `transfer_hook` | 2 tests. Alle paden waarin het programma transfers doet: `launch`, swap-output, refund, `claim_tax` en `sweep_protocol_fees`. Met exacte tellerstanden; zonder hook-accounts falen ze netjes |
 | Lange stressrun | 43.139 trades, waarvan 12.814 belaste kopen, zonder één geschonden invariant |
 | Mutatietest | 78 van 79 mutanten gevangen |
 
@@ -71,7 +74,8 @@ De ene mutant die overblijft is gelijkwaardig aan de originele code: het filter 
 3. **De `transfer_checked`-CPI van `anchor-spl` 1.2.2 geeft geen transfer-hook-accounts door.** Gebruik daarom altijd `token::transfer_checked` uit het programma, nooit die van Anchor.
 4. **Anchor 1.x weigert hetzelfde schrijfbare account twee keer** (`ConstraintDuplicateMutableAccount`), nog vóór onze eigen constraints.
 5. **De router haalt zijn fee van 0,25% na de swap van het input-account van de trader.** Tests die alles verkopen falen daarom met "insufficient funds"; verkoop hooguit 99%.
-6. **Output-hook-accounts:** volgens Pipeline's `INTEGRATOR-GUIDE.md` zet de client de hook-accounts van de output-mint achter de opgevraagde strategy-accounts. `pipeline_swap` geeft alles na de output-vault door aan beide transfers. Dat is correct, maar nog niet getest (zie open punten).
+6. **Output-hook-accounts:** volgens Pipeline's `INTEGRATOR-GUIDE.md` zet de client de hook-accounts van de output-mint achter de opgevraagde strategy-accounts. `pipeline_swap` geeft alles na de output-vault door aan beide transfers. Getest in `transfer_hook.rs`.
+9. **Het test-hook-programma heeft een eigen workspace** (`test-programs/`). In de workspace van `programs/` verandert hij de gedeelde lockfile, en daarmee de binary van het echte programma.
 7. **De router is vastgepind.** Upgradet Pipeline de router op devnet, dan stopt `fetch-pipeline-router.sh`. Controleer dan wat er veranderd is en draai `--accept-new`.
 8. **De sandbox van de cloud-omgeving weigerde de gekloonde Pipeline-repo te bouwen** (externe code). Daarom wordt de router gedownload in plaats van gebouwd. De Solana CLI 4.4.1 (`cargo install solana-cli`) vraagt Rust 1.98.1 en `libudev-dev`.
 
@@ -107,9 +111,8 @@ De ene mutant die overblijft is gelijkwaardig aan de originele code: het filter 
 
 ## Open punten
 
-1. **Tests met transfer-hook-tokens.** Daarvoor is een klein test-hook-programma nodig, met een extra account in de ExtraAccountMetaList. Test kopen (de output-hook-accounts achter de output-vault), verkopen (input-hook-accounts via de router), `launch` en `claim_tax`.
-2. **Fase 6:** een review- of audit-ronde.
-3. **Voor mainnet:**
+1. **Fase 6:** een review- of audit-ronde.
+2. **Voor mainnet:**
    - een eigen programma-keypair;
    - de treasury en de config-admin op een multisig, bijvoorbeeld Squads;
    - besluiten of de upgrade authority bevroren wordt.

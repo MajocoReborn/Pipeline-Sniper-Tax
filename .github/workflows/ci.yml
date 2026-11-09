@@ -26,7 +26,8 @@ jobs:
             ~/.cache/solana
             target
             programs/target
-          key: ${{ runner.os }}-v1-${{ hashFiles('Cargo.lock', 'programs/Cargo.lock', 'rust-toolchain.toml') }}
+            test-programs/target
+          key: ${{ runner.os }}-v1-${{ hashFiles('Cargo.lock', 'programs/Cargo.lock', 'test-programs/Cargo.lock', 'rust-toolchain.toml') }}
           restore-keys: ${{ runner.os }}-v1-
 
       - name: No keypairs in the repository
@@ -42,14 +43,20 @@ jobs:
         run: |
           cargo fmt --all -- --check
           (cd programs && cargo fmt --all -- --check)
+          (cd test-programs && cargo fmt --all -- --check)
 
       - name: Lint
         run: |
           cargo clippy --workspace --all-targets -- -D warnings
           (cd programs && cargo clippy --all-targets -- -D warnings)
+          (cd test-programs && cargo clippy --all-targets -- -D warnings)
 
       - name: Build the program
         working-directory: programs
+        run: cargo build-sbf
+
+      - name: Build the test programs
+        working-directory: test-programs
         run: cargo build-sbf
 
       - name: Fetch the Pipeline router from devnet (pinned)

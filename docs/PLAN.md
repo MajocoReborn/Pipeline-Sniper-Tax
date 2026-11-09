@@ -391,7 +391,10 @@ Pipeline-Sniper-Tax/
   - de creator claimde 90% van de tax, de treasury ontving 10%.
 
   De metadata-URI in de registratie wijst naar `main`. Hij werkt pas zodra deze PR gemerged is.
-- **Fase 4, deels:** transfer-fee-tokens als launch-token en als quote-mint, en geweigerde mints (permanent delegate, freeze- en mint-authority) zijn getest. Transfer hooks nog niet: daarvoor is een klein test-hook-programma nodig.
+- **Fase 4, klaar:**
+  - transfer-fee-tokens als launch-token en als quote-mint;
+  - geweigerde mints (permanent delegate, freeze- en mint-authority);
+  - transfer hooks op de launch-token en op de quote-mint, met een test-hook die elke transfer telt in een extra account. Alle transfer-paden van het programma zijn getest. Een helper die de hook-accounts niet doorgeeft (zoals die van `anchor-spl`) wordt door de tests gevangen.
 - **Extra testen:**
   - `extremes.rs`: een supply van bijna u64-max, dust bij 99% tax, de pool proberen leeg te kopen, exact-out op de rand.
   - `stress.rs`: een willekeurige reeks trades, tijdsprongen, claims, sweeps en donaties. Na elke stap controleert hij dat de quote exact gelijk is aan de swap en aan de wiskunde, dat de vault-boekhouding exact klopt, dat k nooit daalt, en dat er geen token of lamport verdwijnt. Een lange run van 60.000 stappen gaf 43.139 trades zonder één fout.
