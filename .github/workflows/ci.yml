@@ -6,8 +6,7 @@ on:
 
 jobs:
   host:
-    # Host-side crates. The on-chain program gets its own `cargo build-sbf` job once it
-    # exists (phase 2 in docs/PLAN.md).
+    # Host-side crates.
     runs-on: ubuntu-24.04
     env:
       CARGO_INCREMENTAL: "0"
@@ -35,3 +34,42 @@ jobs:
 
       - name: Test
         run: cargo test --workspace
+
+  program:
+    # The on-chain program: formatting, lints on the host, and the sBPF v3 build.
+    runs-on: ubuntu-24.04
+    env:
+      CARGO_INCREMENTAL: "0"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache cargo and Solana tools
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin/cargo-build-sbf
+            ~/.cargo/bin/cargo-test-sbf
+            ~/.cache/solana
+            programs/target
+          key: ${{ runner.os }}-program-v1-${{ hashFiles('programs/Cargo.lock', 'rust-toolchain.toml') }}
+          restore-keys: ${{ runner.os }}-program-v1-
+
+      - name: Install cargo-build-sbf (sBPF v3 toolchain)
+        run: |
+          if ! cargo build-sbf --version 2>/dev/null | grep -q "4.6.0"; then
+            cargo install cargo-build-sbf --version 4.6.0 --locked --force
+          fi
+
+      - name: Check formatting
+        working-directory: programs
+        run: cargo fmt --all -- --check
+
+      - name: Lint
+        working-directory: programs
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Build
+        working-directory: programs
+        run: cargo build-sbf
