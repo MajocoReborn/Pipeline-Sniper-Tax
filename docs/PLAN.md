@@ -315,7 +315,7 @@ Pipeline-Sniper-Tax/
 
 | # | Aanval | Mitigatie |
 |---|---|---|
-| A1 | Opgebouwde tax of dev-fee in de quote-vault wordt bij de volgende swap als "gratis input" gecrediteerd | `credited_input(vault, reserve + accrued_tax + accrued_protocol, amount_sent)` plus een regressietest |
+| A1 | Opgebouwde tax of dev-fee in de quote-vault wordt bij de volgende swap als "gratis input" gecrediteerd. Door de cap op `amount_sent` speelt dit alleen bij quote-mints met een transfer fee, maar dan betaalt de onopgehaalde tax het verschil | `credited_input(vault, reserve + accrued_tax + accrued_protocol, amount_sent)` plus een regressietest (`a_transfer_fee_quote_mint_never_spends_unclaimed_tax`) |
 | A2 | Sniper roept `pipeline_swap` direct aan (zonder router en zonder fee) met trader = creator | `market_signer` moet de router-PDA zijn en tekenen. Alleen de router kan dat |
 | A3 | Sniper geeft `trade.trader = creator` mee | De router zet die waarde zelf. We controleren ook `trade.trader == accounts[2]` |
 | A4 | Iemand maakt de pool van de creator eerder aan (front-run `create_market`) | Het adres bevat creator en params, dus het resultaat is identiek aan wat de creator wilde. De frontend slaat dan `create_market` over. `launch` vereist nog steeds de creator. Aanbevolen is één atomaire tx |
@@ -381,12 +381,11 @@ Pipeline-Sniper-Tax/
 
 ### Voortgang
 
-- **Fase 0, deels klaar:** host-workspace, `rust-toolchain.toml` (1.97.1), CI voor de host-crates (fmt, clippy, tests, keypair-check) en een pre-commit-hook. De CI-job voor `cargo build-sbf` komt erbij zodra het programma bestaat (fase 2). De router-`.so` voor de testharness volgt in fase 3.
+- **Fase 0, klaar:** workspace, `rust-toolchain.toml` (1.97.1), CI (fmt, clippy, sBPF-build, router ophalen, alle tests, keypair-check) en een pre-commit-hook.
 - **Fase 1, klaar:** `crates/sniper-tax-math` met 11 unit-tests en 12 property-tests (2.000 gevallen per stuk) voor alle invarianten uit §9. Bewust afgebroken afrondingen worden door de tests gevangen.
-
-> Opmerking over de cloud-omgeving: Rust 1.97.1 en `cargo-build-sbf` 4.6.0 zijn geïnstalleerd.
-> Het bouwen van de gekloonde Pipeline-repo (voor de router-`.so`) werd door de sandbox geweigerd,
-> omdat dat externe code uitvoert. Daarvoor is in fase 3 toestemming van de eigenaar nodig.
+- **Fase 2, klaar:** `programs/sniper-tax` (Anchor 1.2.2), devnet-programma-adres `EZwLuZ8mSiBoeKtbHwQK4kxCqqj4JuureT1kHpTK3i6b`. Vondst: de `transfer_checked`-CPI van `anchor-spl` 1.2.2 geeft geen transfer-hook-accounts door, dus het programma gebruikt een eigen helper.
+- **Fase 3, klaar:** `crates/sniper-tax-tests`, 24 LiteSVM-tests tegen de router-binary die live op devnet draait (`scripts/fetch-pipeline-router.sh`, vastgepind op sha256). Ze dekken §9 punt 1–13. Bij punt 3 controleren de tests de saldi in plaats van de `SwapEvent` te decoderen. Een swap gebruikt minder dan 80.000 compute units en een quote minder dan 50.000. Een bewust verwijderde A1-bescherming wordt door de tests gevangen.
+- **Fase 4, deels:** transfer-fee-tokens als launch-token en als quote-mint, en geweigerde mints (permanent delegate, freeze- en mint-authority) zijn getest. Transfer hooks nog niet: daarvoor is een klein test-hook-programma nodig.
 
 ## 11. Beslissingen
 

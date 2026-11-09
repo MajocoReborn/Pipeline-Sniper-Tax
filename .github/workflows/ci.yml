@@ -5,40 +5,12 @@ on:
   pull_request:
 
 jobs:
-  host:
-    # Host-side crates.
+  build-and-test:
     runs-on: ubuntu-24.04
     env:
-      CARGO_INCREMENTAL: "0"
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Cache cargo
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-host-v1-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
-          restore-keys: ${{ runner.os }}-host-v1-
-
-      - name: No keypairs in the repository
-        run: scripts/check-no-keypairs.sh
-
-      - name: Check formatting
-        run: cargo fmt --all -- --check
-
-      - name: Lint
-        run: cargo clippy --workspace --all-targets -- -D warnings
-
-      - name: Test
-        run: cargo test --workspace
-
-  program:
-    # The on-chain program: formatting, lints on the host, and the sBPF v3 build.
-    runs-on: ubuntu-24.04
-    env:
+      # Test binaries link every Solana crate; without debug info they're a fraction of
+      # the size.
+      CARGO_PROFILE_DEV_DEBUG: "0"
       CARGO_INCREMENTAL: "0"
     steps:
       - uses: actions/checkout@v4
@@ -52,9 +24,13 @@ jobs:
             ~/.cargo/bin/cargo-build-sbf
             ~/.cargo/bin/cargo-test-sbf
             ~/.cache/solana
+            target
             programs/target
-          key: ${{ runner.os }}-program-v1-${{ hashFiles('programs/Cargo.lock', 'rust-toolchain.toml') }}
-          restore-keys: ${{ runner.os }}-program-v1-
+          key: ${{ runner.os }}-v1-${{ hashFiles('Cargo.lock', 'programs/Cargo.lock', 'rust-toolchain.toml') }}
+          restore-keys: ${{ runner.os }}-v1-
+
+      - name: No keypairs in the repository
+        run: scripts/check-no-keypairs.sh
 
       - name: Install cargo-build-sbf (sBPF v3 toolchain)
         run: |
@@ -63,13 +39,21 @@ jobs:
           fi
 
       - name: Check formatting
-        working-directory: programs
-        run: cargo fmt --all -- --check
+        run: |
+          cargo fmt --all -- --check
+          (cd programs && cargo fmt --all -- --check)
 
       - name: Lint
-        working-directory: programs
-        run: cargo clippy --all-targets -- -D warnings
+        run: |
+          cargo clippy --workspace --all-targets -- -D warnings
+          (cd programs && cargo clippy --all-targets -- -D warnings)
 
-      - name: Build
+      - name: Build the program
         working-directory: programs
         run: cargo build-sbf
+
+      - name: Fetch the Pipeline router from devnet (pinned)
+        run: scripts/fetch-pipeline-router.sh
+
+      - name: Test
+        run: cargo test --workspace
