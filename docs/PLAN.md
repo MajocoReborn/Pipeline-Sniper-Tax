@@ -320,15 +320,23 @@ Pipeline-Sniper-Tax/
 > `cargo-build-sbf` niet. Die worden in fase 0 geïnstalleerd. Daarvoor is netwerktoegang tot de
 > Solana/Anza-releases nodig.
 
-## 11. Beslispunten (aanbeveling vetgedrukt)
+## 11. Beslissingen
+
+B1–B8 zijn goedgekeurd zoals aanbevolen:
+
+| # | Vraag | Besluit |
+|---|---|---|
+| B1 | Waar gaat de tax heen? | Naar de creator, claimbaar met `claim_tax` |
+| B2 | Welke trades worden belast? | Alleen kopen |
+| B3 | Vorm van de curve | Lineair |
+| B4 | Duur en startpercentage | Vrij instelbaar binnen [60 s, 30 min], UI-presets 90 s en 600 s, start standaard 99% |
+| B5 | Mint authority verplicht ingetrokken bij launch? | Ja |
+| B6 | Exact-out ondersteunen? | Ja |
+| B7 | Markt-type | Constant-product met echte liquiditeit (v1); bonding curve met virtuele reserve eventueel in v2 |
+| B8 | Permanente fee na het venster (`end_bps`) | 0% standaard, max 5% |
+
+Nog open:
 
 | # | Vraag | Opties |
 |---|---|---|
-| B1 | Waar gaat de tax heen? | **Naar de creator (claimbaar)** / blijft in de pool (prijs omhoog) / burn / split |
-| B2 | Welke trades worden belast? | **Alleen kopen** / kopen én verkopen tijdens het venster |
-| B3 | Vorm van de curve | **Lineair** / trap (99% tot T, daarna 0%) / exponentieel |
-| B4 | Duur en startpercentage | **Vrij instelbaar binnen [60 s, 30 min], UI-presets 90 s en 600 s, start standaard 99%** / alleen de presets 90 en 600 |
-| B5 | Mint authority verplicht ingetrokken bij launch? | **Ja** / nee, alleen de freeze authority |
-| B6 | Exact-out ondersteunen? | **Ja** (meer integraties) / alleen exact-in (minder risico) |
-| B7 | Markt-type | **Constant-product met echte liquiditeit (creator legt token + SOL in)** / bonding curve met virtuele SOL-reserve (pump-stijl, creator hoeft geen SOL in te leggen); dit kan in v2 |
-| B8 | Permanente fee na het venster (`end_bps`) | **0% standaard, max 5%** / altijd 0% |
+| B9 | Verdienmodel voor de dev van het programma | Een aandeel in de sniper tax / een vaste launch-fee in SOL / een kleine fee op elke swap / een combinatie / geen. Altijd met harde caps in de code en vastgezet per pool bij aanmaak |
