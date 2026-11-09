@@ -400,6 +400,7 @@ Pipeline-Sniper-Tax/
   - `stress.rs`: een willekeurige reeks trades, tijdsprongen, claims, sweeps en donaties. Na elke stap controleert hij dat de quote exact gelijk is aan de swap en aan de wiskunde, dat de vault-boekhouding exact klopt, dat k nooit daalt, en dat er geen token of lamport verdwijnt. Een lange run van 60.000 stappen gaf 43.139 trades zonder één fout.
   - Mutatietest van de wiskunde: 78 van 79 mutanten gevangen; de overblijver is gelijkwaardig aan de originele code.
   - Overdracht voor een volgende sessie: `docs/HANDOFF.md`.
+- **Opgeschoond:** een client-crate (`crates/sniper-tax-client`) voor types en instructies, gebruikt door de tests en de devnet-tool. Duidelijkere testopties (`MintSpec`, `QuoteMint`). De binary van het programma is ongewijzigd.
 
 ## 11. Beslissingen
 

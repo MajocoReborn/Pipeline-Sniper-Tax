@@ -24,9 +24,10 @@ en waar je op moet letten.
 |---|---|
 | `programs/sniper-tax` | Het Anchor 1.2.2-programma (de Pipeline-strategy). `lib.rs` (instructies en account-structs), `state.rs`, `policy.rs` (Token-2022-beleid), `token.rs` (transfer-helper), `errors.rs` |
 | `crates/sniper-tax-math` | Pure wiskunde: tax-curve, tax-verdeling en constant-product. Wordt door het programma gebruikt |
-| `crates/sniper-tax-tests` | LiteSVM-harness (`src/lib.rs`) en integratietests: `launch_pool.rs` (24), `extremes.rs` (4), `stress.rs` (2), `transfer_hook.rs` (2) |
+| `crates/sniper-tax-client` | Adressen (`PoolKeys`, PDA's), gespiegelde account-types en alle instructie-builders. Geen LiteSVM, geen keypairs |
+| `crates/sniper-tax-tests` | LiteSVM-harness (`src/lib.rs`, bovenop de client-crate) en integratietests: `launch_pool.rs` (24), `extremes.rs` (4), `stress.rs` (2), `transfer_hook.rs` (2) |
 | `test-programs/test-hook` | Test-transfer-hook die elke transfer telt, in een eigen workspace zodat hij de lockfile en de binary van het echte programma niet raakt |
-| `crates/sniper-tax-devnet` | Devnet-tool: `setup` (registreren en config) en `demo` (complete launch) |
+| `crates/sniper-tax-devnet` | Devnet-tool op de client-crate: `setup` (registreren en config), `demo` (complete launch), `config` (beheer overdragen) |
 | `metadata/sniper-tax.devnet.json` | Strategy-metadata voor Pipeline-terminals |
 | `scripts/fetch-pipeline-router.sh` | Haalt de router-binary van devnet op, vastgepind op sha256, naar `fixtures/pipeline.so` |
 | `docs/PLAN.md` | Ontwerp, account-validatie, dreigingsmodel, beslissingen, voortgang |
@@ -58,6 +59,7 @@ cargo mutants -p sniper-tax-math
 | Test | Uitkomst |
 |---|---|
 | `sniper-tax-math` | 13 unit-tests en 12 property-tests (2.000 gevallen per stuk) |
+| `sniper-tax-client` | 1 unit-test (pool-adres gelijk aan de seeds van het programma) |
 | `launch_pool` | 24 integratietests |
 | `extremes` | 4 tests |
 | `stress` | 2 tests |
@@ -70,7 +72,7 @@ De ene mutant die overblijft is gelijkwaardig aan de originele code: het filter 
 ## Valkuilen: lees dit vóór het opschonen
 
 1. **Regelnummers zitten in de binary.** Anchor zet bestand en regelnummer in foutmeldingen. Elke verschoven regel in `programs/sniper-tax/src/*.rs` geeft een andere binary. De versie op devnet heeft sha256 `222ee7691fe1b9ca344f0831b5b9ead3b863a59ba38c26c5384a105a92f09c3a`; dat is de build van de huidige broncode. Opschonen in het programma betekent: opnieuw deployen (upgrade) op devnet, of accepteren dat devnet een oudere versie draait.
-2. **Het programma-adres staat op drie plekken:** `declare_id!` in `programs/sniper-tax/src/lib.rs`, `PROGRAM_ID` in `crates/sniper-tax-tests/src/lib.rs`, en in de metadata-JSON. De programma-keypair stond alleen in de oude cloud-omgeving. Een nieuwe `cargo build-sbf` maakt een nieuwe keypair aan in `target/deploy/`. De tests hebben die niet nodig, want LiteSVM laadt de `.so` op het vaste adres; alleen deployen naar een nieuw adres vraagt de keypair.
+2. **Het programma-adres staat op drie plekken:** `declare_id!` in `programs/sniper-tax/src/lib.rs`, `PROGRAM_ID` in `crates/sniper-tax-client/src/lib.rs`, en in de metadata-JSON. De programma-keypair stond alleen in de oude cloud-omgeving. Een nieuwe `cargo build-sbf` maakt een nieuwe keypair aan in `target/deploy/`. De tests hebben die niet nodig, want LiteSVM laadt de `.so` op het vaste adres; alleen deployen naar een nieuw adres vraagt de keypair.
 3. **De `transfer_checked`-CPI van `anchor-spl` 1.2.2 geeft geen transfer-hook-accounts door.** Gebruik daarom altijd `token::transfer_checked` uit het programma, nooit die van Anchor.
 4. **Anchor 1.x weigert hetzelfde schrijfbare account twee keer** (`ConstraintDuplicateMutableAccount`), nog vóór onze eigen constraints.
 5. **De router haalt zijn fee van 0,25% na de swap van het input-account van de trader.** Tests die alles verkopen falen daarom met "insufficient funds"; verkoop hooguit 99%.
@@ -100,14 +102,24 @@ De ene mutant die overblijft is gelijkwaardig aan de originele code: het filter 
 
 `crates/sniper-tax-devnet` heeft een `config`-commando om de admin en de treasury later weer over te dragen. De metadata-URI in de registratie wijst naar `main` en werkt pas na de merge van PR #1, en alleen als de repo publiek is.
 
-## Kandidaten voor opschonen
+## Opgeschoond
 
-- **Een client-crate:** `sniper-tax-client` met de account-types, PDA's en instructie-builders. Die zitten nu in de testharness (`crates/sniper-tax-tests/src/lib.rs`), die ook test-specifieke dingen bevat (keypair en opties in `Pool`). Tests en de devnet-tool zouden de client-crate gebruiken, en integrators kunnen hem ook gebruiken. Dit raakt het programma niet.
-- **Gespiegelde types:** `LaunchPool`, `ProtocolConfig`, `InitParams` en `ConfigArgs` staan dubbel (in het programma en in de tests). Met een client-crate kan dat op één plek.
-- **Foutcode:** `LaunchPool::apply` gebruikt `MathOverflow` voor "een verkoop met tax", wat niet kan gebeuren. Een eigen foutcode of een `debug_assert` is duidelijker. Let op valkuil 1.
-- **Dubbele check:** de constraint `destination != quote_vault` in `ClaimTax` doet hetzelfde als Anchors eigen duplicaatcheck. Hij mag weg. Let op valkuil 1.
-- **De devnet-tool** praat JSON-RPC via `curl`. Dat werkt, maar een echte RPC-client is netter.
-- **Taal:** de docs zijn Nederlands, de code-commentaren Engels. Kies of je dat zo wilt houden.
+- **Client-crate:** `crates/sniper-tax-client` bevat de account-types (één spiegel van het programma, op één plek), de PDA's en alle instructie-builders. `launch_ix` en `claim_tax_ix` nemen de creator uit de pool-parameters. De testharness en de devnet-tool bouwen erop; de devnet-tool hangt niet meer van LiteSVM af.
+- **Testopties:** mints worden beschreven met `MintSpec` (`MintSpec::token_2022(6).with_transfer_fee(..)`) en de quote-kant met `QuoteMint`, in plaats van losse vlaggen en een `Option<Option<..>>`.
+- **Router opnieuw vastgepind:** Pipeline bouwde dezelfde routercode opnieuw (slot 520510501). Alle tests slagen ertegen.
+
+## Nog op te schonen: in het programma (vraagt een nieuwe deploy)
+
+Deze punten veranderen de binary (valkuil 1). Upgraden op hetzelfde adres kan alleen met de wallet van de eigenaar. Bundel ze daarom met de uitkomst van de review in fase 6.
+
+- **Foutcode:** `LaunchPool::apply` gebruikt `MathOverflow` voor "een verkoop met tax", wat niet kan gebeuren. Een eigen foutcode is duidelijker.
+- **Dubbele check:** de constraint `destination != quote_vault` in `ClaimTax` doet hetzelfde als Anchors eigen duplicaatcheck en mag weg.
+- **Dubbele veiligheidscheck:** het filter `*reserve > 0` in `Pricing::settle` (in de wiskunde-crate, die het programma gebruikt) kan nooit triggeren. Laten staan als verdediging, of weghalen.
+
+## Bewust zo gelaten
+
+- **De devnet-tool** praat JSON-RPC via `curl`. Dat werkt en houdt de tool klein; een echte RPC-client (`solana-rpc-client`) trekt veel dependencies mee voor een hulpscript.
+- **Taal:** de docs zijn Nederlands, code en commentaar Engels.
 
 ## Open punten
 

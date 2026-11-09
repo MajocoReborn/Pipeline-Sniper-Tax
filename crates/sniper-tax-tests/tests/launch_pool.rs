@@ -53,7 +53,7 @@ fn create_and_launch_fit_one_transaction() {
     assert_eq!(env.lamports(&env.treasury) - treasury_before, LAUNCH_FEE);
 
     // The router recorded the market with this pool's mints and vaults.
-    let market = client::decode_market(&env.account_data(&pool.market)).expect("market");
+    let market = router::decode_market(&env.account_data(&pool.market)).expect("market");
     assert_eq!(market.mints(), &[pool.token_mint, pool.quote_mint]);
     assert_eq!(market.vault_for(&pool.quote_mint), Some(pool.quote_vault));
     env.assert_solvent(&pool);
@@ -74,9 +74,8 @@ fn a_pending_pool_cannot_trade_and_only_its_creator_launches_it_once() {
 
     // Someone else signs as creator, with the creator's token accounts.
     let intruder = env.funded_keypair();
-    let mut ix = pool.launch_ix(&intruder.pubkey(), &env.treasury, 1, 1);
-    ix.accounts[4].pubkey = pool.creator_token;
-    ix.accounts[5].pubkey = pool.creator_quote;
+    let mut ix = pool.launch_ix(&env.treasury, 1, 1);
+    ix.accounts[0].pubkey = intruder.pubkey();
     assert_fails_with(env.send(&[ix], &[&intruder]), "NotCreator");
 
     env.launch(&pool).expect("launch");
@@ -94,7 +93,7 @@ fn launch_requires_revoked_mint_and_freeze_authorities() {
     assert_fails_with(env.launch(&pool), "MintAuthorityPresent");
 
     let (pool, created) = env.create_pool(PoolOptions {
-        token_freeze_authority: true,
+        token: MintSpec::spl(6).with_freeze_authority(),
         ..PoolOptions::default()
     });
     created.expect("create_market");
@@ -105,8 +104,7 @@ fn launch_requires_revoked_mint_and_freeze_authorities() {
 fn a_permanent_delegate_mint_is_refused() {
     let mut env = Env::new();
     let (_, created) = env.create_pool(PoolOptions {
-        token_program: client::TOKEN_2022_PROGRAM_ID,
-        token_permanent_delegate: true,
+        token: MintSpec::token_2022(6).with_permanent_delegate(),
         ..PoolOptions::default()
     });
     assert_fails_with(created, "ForbiddenMintExtension");
@@ -405,25 +403,26 @@ fn the_creator_claims_their_tax_once() {
 
     // Someone else can't claim it, not even to the creator's account.
     let intruder = env.funded_keypair();
-    let ix = pool.claim_tax_ix(&intruder.pubkey(), &pool.creator_quote);
+    let mut ix = pool.claim_tax_ix(&pool.creator_quote());
+    ix.accounts[0].pubkey = intruder.pubkey();
     assert_fails_with(env.send(&[ix], &[&intruder]), "NotCreator");
 
-    let before = env.token_balance(&pool.creator_quote);
+    let before = env.token_balance(&pool.creator_quote());
     let creator = pool.creator.insecure_clone();
-    let ix = pool.claim_tax_ix(&creator.pubkey(), &pool.creator_quote);
+    let ix = pool.claim_tax_ix(&pool.creator_quote());
     env.send(&[ix], &[&creator]).expect("claim");
-    assert_eq!(env.token_balance(&pool.creator_quote) - before, owed);
+    assert_eq!(env.token_balance(&pool.creator_quote()) - before, owed);
     assert_eq!(env.pool_state(&pool).accrued_tax_quote, 0);
     env.assert_solvent(&pool);
 
-    let ix = pool.claim_tax_ix(&creator.pubkey(), &pool.creator_quote);
+    let ix = pool.claim_tax_ix(&pool.creator_quote());
     assert_fails_with(env.send(&[ix], &[&creator]), "NothingToClaim");
 
     // The creator can't "claim" into the vault itself (Anchor already refuses the same
     // writable account twice).
     env.swap(&pool, &sniper, Side::Buy, exact_in(SOL, 0))
         .expect("buy");
-    let ix = pool.claim_tax_ix(&creator.pubkey(), &pool.quote_vault);
+    let ix = pool.claim_tax_ix(&pool.quote_vault);
     assert_fails_with(
         env.send(&[ix], &[&creator]),
         "ConstraintDuplicateMutableAccount",
@@ -442,7 +441,7 @@ fn protocol_tax_is_swept_only_to_the_treasury() {
     let treasury_quote = env.create_ata(&treasury, &pool.quote_mint, &pool.quote_program);
 
     // Pointing the sweep at another account, or another treasury, fails.
-    let ix = pool.sweep_ix(&treasury, &pool.creator_quote);
+    let ix = pool.sweep_ix(&treasury, &pool.creator_quote());
     assert!(env.send(&[ix], &[]).is_err());
     let impostor = Pubkey::new_unique();
     let impostor_quote = env.create_ata(&impostor, &pool.quote_mint, &pool.quote_program);
@@ -458,6 +457,35 @@ fn protocol_tax_is_swept_only_to_the_treasury() {
 }
 
 // ------------------------------------------------------------------------- attacks
+
+/// The accounts the router passes to `pipeline_swap` for a buy, with `market_signer`
+/// signing in its place, and the output vault.
+fn strategy_swap_accounts(
+    pool: &PoolKeys,
+    market_signer: Pubkey,
+    trader: &Pubkey,
+) -> Vec<AccountMeta> {
+    let legs = pool.legs(Side::Buy);
+    vec![
+        AccountMeta::new_readonly(market_signer, true),
+        AccountMeta::new(pool.address, false),
+        AccountMeta::new_readonly(*trader, false),
+        AccountMeta::new(
+            router_pda::associated_token(trader, &legs.input_mint, &legs.input_program),
+            false,
+        ),
+        AccountMeta::new(
+            router_pda::associated_token(trader, &legs.output_mint, &legs.output_program),
+            false,
+        ),
+        AccountMeta::new(legs.input_vault, false),
+        AccountMeta::new_readonly(legs.input_mint, false),
+        AccountMeta::new_readonly(legs.output_mint, false),
+        AccountMeta::new_readonly(legs.input_program, false),
+        AccountMeta::new_readonly(legs.output_program, false),
+        AccountMeta::new(legs.output_vault, false),
+    ]
+}
 
 #[test]
 fn swaps_only_come_through_the_router() {
@@ -478,7 +506,7 @@ fn swaps_only_come_through_the_router() {
         min_amount_out: 0,
     };
     // The attacker signs as the market signer.
-    let accounts = pool.trade_accounts(Side::Buy, attacker.pubkey(), &pool.creator.pubkey(), true);
+    let accounts = strategy_swap_accounts(&pool, attacker.pubkey(), &pool.creator.pubkey());
     let ix = program_ix("pipeline_swap", &request, accounts);
     assert_fails_with(env.send(&[ix], &[&attacker]), "NotPipeline");
 }
@@ -528,7 +556,7 @@ fn creating_the_creators_pool_first_gains_nothing() {
 fn register_existing_market_rejects_accounts_that_are_not_pools() {
     let mut env = Env::new();
     let admin = env.admin.pubkey();
-    let ix = client::register_existing_market(&admin, &PROGRAM_ID, &config_address(), vec![]);
+    let ix = router::register_existing_market(&admin, &PROGRAM_ID, &config_address(), vec![]);
     assert!(env.send(&[ix], &[]).is_err());
 }
 
@@ -538,7 +566,7 @@ fn a_transfer_fee_quote_mint_never_spends_unclaimed_tax() {
     // what arrived above the books, which include unclaimed tax.
     let mut env = Env::new();
     let pool = env.launched_pool(PoolOptions {
-        custom_quote: Some(Some((100, u64::MAX))),
+        quote: QuoteMint::New(MintSpec::token_2022(9).with_transfer_fee(100, u64::MAX)),
         ..PoolOptions::default()
     });
     let sniper = env.buyer(&pool, 20 * SOL);
@@ -566,8 +594,7 @@ fn a_transfer_fee_quote_mint_never_spends_unclaimed_tax() {
 fn a_transfer_fee_launch_token_is_priced_on_what_arrives() {
     let mut env = Env::new();
     let pool = env.launched_pool(PoolOptions {
-        token_program: client::TOKEN_2022_PROGRAM_ID,
-        token_transfer_fee: Some((200, u64::MAX)),
+        token: MintSpec::token_2022(6).with_transfer_fee(200, u64::MAX),
         ..PoolOptions::default()
     });
     let state = env.pool_state(&pool);

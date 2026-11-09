@@ -14,6 +14,7 @@ Werkt met SPL Token en Token-2022.
 | `docs/PLAN.md` | Ontwerp, account-validatie, dreigingsmodel, testplan en fasering |
 | `crates/sniper-tax-math` | Pure wiskunde: tax-curve, tax-verdeling en constant-product-prijzen, met property-tests |
 | `programs/sniper-tax` | Het Anchor-programma: de Pipeline-strategy |
+| `crates/sniper-tax-client` | Adressen, account-types en instructie-builders, voor launchers, scripts en integrators |
 | `crates/sniper-tax-tests` | Integratietests tegen de echte Pipeline-router van devnet |
 | `test-programs/test-hook` | Test-transfer-hook voor de integratietests |
 | `crates/sniper-tax-devnet` | Registratie, config en een demo-launch op devnet |
@@ -50,7 +51,7 @@ Zelf deployen:
 Je hebt de Solana CLI 4.4 nodig en een wallet met ongeveer 6 devnet-SOL (via
 [faucet.solana.com](https://faucet.solana.com)). Het programma-adres in `declare_id!` hoort bij
 de keypair in `programs/target/deploy/`. Wie zelf deployt, maakt een eigen keypair en past het
-adres aan in `programs/sniper-tax/src/lib.rs`, `crates/sniper-tax-tests/src/lib.rs` en de metadata.
+adres aan in `programs/sniper-tax/src/lib.rs`, `crates/sniper-tax-client/src/lib.rs` en de metadata.
 
 ```sh
 solana program deploy programs/target/deploy/sniper_tax.so \

@@ -10,8 +10,7 @@ description = "LiteSVM integration tests: the sniper-tax program against the rea
 bincode = "1"
 borsh = { version = "1.5", features = ["derive"] }
 litesvm = "=0.18.2"
-pipeline-client = { git = "https://github.com/MetalLegBob/pipeline", rev = "a2d5bfbe62ff61d3ca0ce7a976520da61a0f16c4" }
-pipeline-strategy-interface = { git = "https://github.com/MetalLegBob/pipeline", rev = "a2d5bfbe62ff61d3ca0ce7a976520da61a0f16c4" }
+sniper-tax-client = { path = "../sniper-tax-client" }
 sniper-tax-math = { path = "../sniper-tax-math" }
 solana-account = "=4.7.0"
 solana-clock = "~3.2.0"

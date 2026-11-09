@@ -23,8 +23,10 @@ use std::time::{Duration, Instant};
 
 use base64::Engine;
 use serde_json::{json, Value};
-use sniper_tax_tests::*;
+use sniper_tax_client::*;
 use solana_hash::Hash;
+use solana_keypair::Keypair;
+use solana_signer::Signer;
 use solana_transaction::Transaction;
 use spl_token_2022_interface::instruction::AuthorityType;
 
@@ -33,6 +35,13 @@ const METADATA_URI: &str =
     "https://raw.githubusercontent.com/MajocoReborn/Pipeline-Sniper-Tax/main/metadata/sniper-tax.devnet.json";
 /// Refuse to register if the router's listing fee is above this.
 const MAX_LISTING_FEE: u64 = 20_000_000;
+
+const SOL: u64 = 1_000_000_000;
+/// Protocol settings `setup` creates the config with.
+const PROTOCOL_SHARE_BPS: u16 = 1_000;
+const LAUNCH_FEE: u64 = 10_000_000;
+/// Solana's packet limit for a serialised transaction.
+const MAX_TRANSACTION_SIZE: usize = 1_232;
 
 const TOKEN_DECIMALS: u8 = 6;
 const TOKEN_SUPPLY: u64 = 1_000_000_000 * 1_000_000;
@@ -89,23 +98,23 @@ fn explorer(signature: &str) -> String {
 fn setup(rpc: &Rpc, payer: &Keypair, treasury: Pubkey) -> Result<()> {
     let admin = payer.pubkey();
     println!("program   {PROGRAM_ID}");
-    println!("authority {admin}");
+    println!("signer    {admin}");
     println!("treasury  {treasury}");
     rpc.account(&PROGRAM_ID)?
         .ok_or("the program is not deployed yet: run `solana program deploy` first")?;
 
-    if rpc.account(&pda::strategy(&PROGRAM_ID))?.is_some() {
+    if rpc.account(&router_pda::strategy(&PROGRAM_ID))?.is_some() {
         println!("already registered with the Pipeline router");
     } else {
         let config = rpc
-            .account(&pda::config())?
+            .account(&router_pda::config())?
             .ok_or("the Pipeline router has no config on this cluster")?;
-        let router = client::decode_config(&config.1).ok_or("unreadable router config")?;
+        let router = router::decode_config(&config.1).ok_or("unreadable router config")?;
         println!(
             "registering with the router (listing fee {} lamports)",
             router.listing_fee_lamports
         );
-        let ix = client::register_strategy(
+        let ix = router::register_strategy(
             &admin,
             &admin,
             &PROGRAM_ID,
@@ -152,8 +161,7 @@ fn hand_over_config(rpc: &Rpc, admin: &Keypair, new_admin: Pubkey, treasury: Pub
     let account = rpc
         .account(&config_address())?
         .ok_or("no protocol config")?;
-    let config: ProtocolConfig =
-        client::decode_account("ProtocolConfig", &account.1).ok_or("unreadable config")?;
+    let config: ProtocolConfig = ProtocolConfig::decode(&account.1).ok_or("unreadable config")?;
     let args = ConfigArgs {
         admin: new_admin,
         treasury,
@@ -164,8 +172,7 @@ fn hand_over_config(rpc: &Rpc, admin: &Keypair, new_admin: Pubkey, treasury: Pub
     let account = rpc
         .account(&config_address())?
         .ok_or("no protocol config")?;
-    let config: ProtocolConfig =
-        client::decode_account("ProtocolConfig", &account.1).ok_or("unreadable config")?;
+    let config: ProtocolConfig = ProtocolConfig::decode(&account.1).ok_or("unreadable config")?;
     if (config.admin, config.treasury) != (new_admin, treasury) {
         return Err("the config did not change".into());
     }
@@ -184,16 +191,15 @@ fn demo(rpc: &Rpc, creator: &Keypair, wait: bool) -> Result<()> {
     let config = rpc
         .account(&config_address())?
         .ok_or("no protocol config: run `setup` first")?;
-    let config: ProtocolConfig =
-        client::decode_account("ProtocolConfig", &config.1).ok_or("unreadable config")?;
+    let config: ProtocolConfig = ProtocolConfig::decode(&config.1).ok_or("unreadable config")?;
     let me = creator.pubkey();
-    let token_program = client::TOKEN_PROGRAM_ID;
-    let quote_mint = client::wallet::NATIVE_MINT;
+    let token_program = router::TOKEN_PROGRAM_ID;
+    let quote_mint = router::wallet::NATIVE_MINT;
 
     // A new launch token: full supply to the creator, then no more minting.
     let mint = Keypair::new();
-    let creator_token = pda::associated_token(&me, &mint.pubkey(), &token_program);
-    let creator_quote = pda::associated_token(&me, &quote_mint, &token_program);
+    let creator_token = router_pda::associated_token(&me, &mint.pubkey(), &token_program);
+    let creator_quote = router_pda::associated_token(&me, &quote_mint, &token_program);
     let mint_rent = rpc.rent(82)?;
     let ixs = vec![
         solana_system_interface::instruction::create_account(
@@ -231,8 +237,8 @@ fn demo(rpc: &Rpc, creator: &Keypair, wait: bool) -> Result<()> {
         )
         .map_err(|e| e.to_string())?,
         ata_ix(&me, &me, &quote_mint, &token_program),
-        client::wallet::system_transfer(&me, &creator_quote, POOL_QUOTE),
-        client::wallet::sync_native(&creator_quote),
+        router::wallet::system_transfer(&me, &creator_quote, POOL_QUOTE),
+        router::wallet::sync_native(&creator_quote),
     ];
     let signature = rpc.send(&ixs, creator, &[&mint])?;
     println!("token {} created: {}", mint.pubkey(), explorer(&signature));
@@ -244,29 +250,17 @@ fn demo(rpc: &Rpc, creator: &Keypair, wait: bool) -> Result<()> {
         tax_end_bps: 0,
         tax_duration_secs: 90,
     };
-    let address = pool_address(&mint.pubkey(), &quote_mint, &params);
-    let pool = Pool {
-        address,
-        market: pda::market(&PROGRAM_ID, &address),
-        creator: creator.insecure_clone(),
+    let pool = PoolKeys::new(
         params,
-        token_mint: mint.pubkey(),
+        mint.pubkey(),
+        token_program,
         quote_mint,
         token_program,
-        quote_program: token_program,
-        token_vault: pda::associated_token(&address, &mint.pubkey(), &token_program),
-        quote_vault: pda::associated_token(&address, &quote_mint, &token_program),
-        creator_token,
-        creator_quote,
-        options: PoolOptions {
-            token_amount: POOL_TOKENS,
-            quote_amount: POOL_QUOTE,
-            ..PoolOptions::default()
-        },
-    };
+    );
+    let address = pool.address;
     let mut ixs = vec![pool.create_market_ix(&me)];
     ixs.extend(pool.fee_account_ixs(&me));
-    ixs.push(pool.launch_ix(&me, &config.treasury, POOL_TOKENS, POOL_QUOTE));
+    ixs.push(pool.launch_ix(&config.treasury, POOL_TOKENS, POOL_QUOTE));
     let signature = rpc.send(&ixs, creator, &[])?;
     println!(
         "pool {address} created and launched: {}",
@@ -275,12 +269,12 @@ fn demo(rpc: &Rpc, creator: &Keypair, wait: bool) -> Result<()> {
 
     // A sniper buys right after the launch.
     let sniper = Keypair::new();
-    let sniper_quote = pda::associated_token(&sniper.pubkey(), &quote_mint, &token_program);
+    let sniper_quote = router_pda::associated_token(&sniper.pubkey(), &quote_mint, &token_program);
     let ixs = vec![
-        client::wallet::system_transfer(&me, &sniper.pubkey(), SOL / 100),
+        router::wallet::system_transfer(&me, &sniper.pubkey(), SOL / 100),
         ata_ix(&me, &sniper.pubkey(), &quote_mint, &token_program),
-        client::wallet::system_transfer(&me, &sniper_quote, SNIPE * 2),
-        client::wallet::sync_native(&sniper_quote),
+        router::wallet::system_transfer(&me, &sniper_quote, SNIPE * 2),
+        router::wallet::sync_native(&sniper_quote),
         ata_ix(&me, &sniper.pubkey(), &mint.pubkey(), &token_program),
     ];
     rpc.send(&ixs, creator, &[])?;
@@ -332,13 +326,14 @@ fn demo(rpc: &Rpc, creator: &Keypair, wait: bool) -> Result<()> {
 
     // The creator claims their part; anyone sweeps the protocol's part to the treasury.
     let state = pool_state(rpc, &pool)?;
-    let signature = rpc.send(&[pool.claim_tax_ix(&me, &creator_quote)], creator, &[])?;
+    let signature = rpc.send(&[pool.claim_tax_ix(&creator_quote)], creator, &[])?;
     println!(
         "creator claimed {} lamports of tax: {}",
         state.accrued_tax_quote,
         explorer(&signature)
     );
-    let treasury_quote = pda::associated_token(&config.treasury, &quote_mint, &token_program);
+    let treasury_quote =
+        router_pda::associated_token(&config.treasury, &quote_mint, &token_program);
     let ixs = [
         ata_ix(&me, &config.treasury, &quote_mint, &token_program),
         pool.sweep_ix(&config.treasury, &treasury_quote),
@@ -361,9 +356,9 @@ fn ata_ix(payer: &Pubkey, owner: &Pubkey, mint: &Pubkey, token_program: &Pubkey)
     )
 }
 
-fn pool_state(rpc: &Rpc, pool: &Pool) -> Result<LaunchPool> {
+fn pool_state(rpc: &Rpc, pool: &PoolKeys) -> Result<LaunchPool> {
     let account = rpc.account(&pool.address)?.ok_or("pool not found")?;
-    client::decode_account("LaunchPool", &account.1).ok_or_else(|| "unreadable pool".into())
+    LaunchPool::decode(&account.1).ok_or_else(|| "unreadable pool".into())
 }
 
 // ---------------------------------------------------------------------------------------
@@ -497,7 +492,7 @@ impl Rpc {
     /// Simulates `pipeline_quote` for a buy of `amount`.
     fn quote(
         &self,
-        pool: &Pool,
+        pool: &PoolKeys,
         payer: &Keypair,
         amount: u64,
         trader: Option<Pubkey>,

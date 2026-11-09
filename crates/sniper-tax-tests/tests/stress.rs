@@ -125,10 +125,10 @@ impl Stress {
             .map(|t| self.env.quote_account(pool, &t.pubkey()))
             .collect();
         accounts.extend([
-            pool.creator_quote,
+            pool.creator_quote(),
             pool.quote_vault,
             self.treasury_quote,
-            pda::fee_account(&pool.market, &pool.quote_mint, &pool.quote_program),
+            router_pda::fee_account(&pool.market, &pool.quote_mint, &pool.quote_program),
         ]);
         accounts
     }
@@ -141,9 +141,9 @@ impl Stress {
             .map(|t| self.env.token_account(pool, &t.pubkey()))
             .collect();
         accounts.extend([
-            pool.creator_token,
+            pool.creator_token(),
             pool.token_vault,
-            pda::fee_account(&pool.market, &pool.token_mint, &pool.token_program),
+            router_pda::fee_account(&pool.market, &pool.token_mint, &pool.token_program),
         ]);
         accounts
     }
@@ -198,9 +198,10 @@ impl Stress {
         };
         let is_creator = creator.is_some();
         let legs = self.pool.legs(side);
-        let input = pda::associated_token(&trader.pubkey(), &legs.input_mint, &legs.input_program);
+        let input =
+            router_pda::associated_token(&trader.pubkey(), &legs.input_mint, &legs.input_program);
         let output =
-            pda::associated_token(&trader.pubkey(), &legs.output_mint, &legs.output_program);
+            router_pda::associated_token(&trader.pubkey(), &legs.output_mint, &legs.output_program);
         let input_balance = self.env.token_balance(&input);
         let state = self.env.pool_state(&self.pool);
         let (reserve_in, reserve_out) = match side {
@@ -328,10 +329,8 @@ impl Stress {
     fn claim(&mut self) {
         let owed = self.env.pool_state(&self.pool).accrued_tax_quote;
         let creator = self.pool.creator.insecure_clone();
-        let before = self.env.token_balance(&self.pool.creator_quote);
-        let ix = self
-            .pool
-            .claim_tax_ix(&creator.pubkey(), &self.pool.creator_quote);
+        let before = self.env.token_balance(&self.pool.creator_quote());
+        let ix = self.pool.claim_tax_ix(&self.pool.creator_quote());
         let result = self.env.send(&[ix], &[&creator]);
         if owed == 0 {
             assert_fails_with(result, "NothingToClaim");
@@ -339,7 +338,7 @@ impl Stress {
         }
         result.expect("claim");
         assert_eq!(
-            self.env.token_balance(&self.pool.creator_quote) - before,
+            self.env.token_balance(&self.pool.creator_quote()) - before,
             owed
         );
         assert_eq!(self.env.pool_state(&self.pool).accrued_tax_quote, 0);
@@ -377,10 +376,10 @@ impl Stress {
             let creator = self.pool.creator.insecure_clone();
             let amount = self
                 .rng
-                .amount(self.env.token_balance(&self.pool.creator_token) / 1_000);
+                .amount(self.env.token_balance(&self.pool.creator_token()) / 1_000);
             let ix = spl_token_2022_interface::instruction::transfer_checked(
                 &self.pool.token_program,
-                &self.pool.creator_token,
+                &self.pool.creator_token(),
                 &self.pool.token_mint,
                 &self.pool.token_vault,
                 &creator.pubkey(),

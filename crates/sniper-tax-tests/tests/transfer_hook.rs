@@ -15,15 +15,13 @@ fn a_hooked_launch_token_launches_and_trades_both_ways() {
     let mut env = Env::new();
     let hook = env.load_test_hook();
     let (pool, created) = env.create_pool(PoolOptions {
-        token_program: client::TOKEN_2022_PROGRAM_ID,
-        token_transfer_hook: Some(hook),
+        token: MintSpec::token_2022(6).with_transfer_hook(hook),
         ..PoolOptions::default()
     });
     created.expect("create_market");
     let hooks = test_hook::accounts(&pool.token_mint);
     let creator = pool.creator.insecure_clone();
     let launch = pool.launch_ix(
-        &creator.pubkey(),
         &env.treasury,
         pool.options.token_amount,
         pool.options.quote_amount,
@@ -101,15 +99,13 @@ fn a_hooked_quote_mint_works_for_buys_refunds_claims_and_sweeps() {
     let mut env = Env::new();
     let hook = env.load_test_hook();
     let (pool, created) = env.create_pool(PoolOptions {
-        custom_quote: Some(None),
-        quote_transfer_hook: Some(hook),
+        quote: QuoteMint::New(MintSpec::token_2022(9).with_transfer_hook(hook)),
         ..PoolOptions::default()
     });
     created.expect("create_market");
     let hooks = test_hook::accounts(&pool.quote_mint);
     let creator = pool.creator.insecure_clone();
     let launch = pool.launch_ix(
-        &creator.pubkey(),
         &env.treasury,
         pool.options.token_amount,
         pool.options.quote_amount,
@@ -142,13 +138,13 @@ fn a_hooked_quote_mint_works_for_buys_refunds_claims_and_sweeps() {
     assert!(state.accrued_tax_quote > 0 && state.accrued_protocol_quote > 0);
 
     // The creator's claim needs the hook's accounts too.
-    let claim = pool.claim_tax_ix(&creator.pubkey(), &pool.creator_quote);
+    let claim = pool.claim_tax_ix(&pool.creator_quote());
     assert!(env.send(std::slice::from_ref(&claim), &[&creator]).is_err());
-    let before = env.token_balance(&pool.creator_quote);
+    let before = env.token_balance(&pool.creator_quote());
     env.send(&[with_hooks(claim, &hooks)], &[&creator])
         .expect("claim");
     assert_eq!(
-        env.token_balance(&pool.creator_quote) - before,
+        env.token_balance(&pool.creator_quote()) - before,
         state.accrued_tax_quote
     );
     assert_eq!(env.hook_count(&pool.quote_mint), 5);
