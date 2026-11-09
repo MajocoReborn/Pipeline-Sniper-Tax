@@ -83,6 +83,26 @@ Voorbeeld: een sniper koopt op t = 0 voor 10 SOL. Er gaat 9,9 SOL naar de creato
 - De custom action `claim_tax` (creator tekent) maakt `accrued_tax_quote` over naar een quote-tokenaccount naar keuze.
 - Er is **geen withdraw van liquiditeit**: de launch-liquiditeit zit permanent vast ("LP burned"-equivalent). De creator kan de pool dus niet leegtrekken (rug).
 
+### 3.5 Verdienmodel voor de dev (B9: aandeel in de tax plus een kleine launch-fee)
+
+Solana-gebruikers letten scherp op kosten, dus de fees blijven laag en zichtbaar:
+
+| Bron | Standaard | Harde cap in code | Wie betaalt |
+|---|---|---|---|
+| **A. Aandeel in de sniper tax** | 10% van elke ingehouden tax | 20% | Uit het tax-deel van de creator. De sniper betaalt niets extra, gewone kopers na het venster ook niet |
+| **B. Launch-fee** | 0,01 SOL per `launch` | 0,05 SOL | De creator, eenmalig. Ter vergelijking: de rent voor pool en vaults is samen ongeveer 0,007 SOL |
+
+Werking:
+
+- Een globale `ProtocolConfig`-PDA (`["config"]`) bevat `admin`, `treasury`, `protocol_tax_share_bps` en `launch_fee_lamports`. De upgrade authority van het programma maakt hem één keer aan. Daarna mag de `admin` de waarden wijzigen, maar alleen binnen de caps.
+- **Vastgezet per pool:** `pipeline_init_market` kopieert het tax-aandeel en de launch-fee naar de pool. Een latere config-wijziging raakt alleen nieuwe pools.
+- De launch-fee is `min(pool.launch_fee_lamports, config.launch_fee_lamports)`. De creator betaalt dus nooit meer dan bij het aanmaken gold, en profiteert van een latere verlaging (bijvoorbeeld een promotie met 0 SOL).
+- Het tax-aandeel: `protocol = floor(tax · share / 10000)` en `creator = tax − protocol`. Afronding valt in het voordeel van de creator. Beide bedragen blijven in de quote-vault staan (Strategy Guide-regel 10), als `accrued_protocol_quote` en `accrued_tax_quote`.
+- `sweep_protocol_fees` is permissionless en stuurt `accrued_protocol_quote` alleen naar de ATA van `config.treasury`, net als Pipeline's eigen `sweep_fees`.
+- `pipeline_quote` rekent met de totale tax. Het aandeel verandert niets aan wat de koper krijgt, dus quotes blijven kloppen.
+
+Voorbeeld: een sniper koopt op t = 0 voor 10 SOL. De tax is 9,9 SOL, waarvan 0,99 SOL naar de dev-treasury gaat en 8,91 SOL naar de creator. De sniper betaalt daarnaast 0,025 SOL aan Pipeline.
+
 ## 4. State
 
 ```rust
@@ -100,11 +120,25 @@ pub struct LaunchPool {
     pub market_signer: Pubkey,       // PDA(["market", ID, pool], PIPELINE)
     pub reserve_token: u64,
     pub reserve_quote: u64,
-    pub accrued_tax_quote: u64,      // in quote_vault, NIET in reserves
+    pub accrued_tax_quote: u64,      // creator-deel, in quote_vault, NIET in reserves
+    pub accrued_protocol_quote: u64, // dev-deel, in quote_vault, NIET in reserves
     pub tax_start_bps: u16,          // ≤ 9900
     pub tax_end_bps: u16,            // ≤ MAX_END_BPS (anti-honeypot cap)
     pub tax_duration_secs: u32,      // binnen [MIN_DURATION, MAX_DURATION]
+    pub protocol_tax_share_bps: u16, // vastgezet bij init, ≤ 2000
+    pub launch_fee_lamports: u64,    // vastgezet bij init, ≤ 0,05 SOL
     pub launch_ts: i64,              // 0 zolang Pending
+    pub _reserved: [u8; 64],
+}
+
+#[account]
+#[derive(InitSpace)]
+pub struct ProtocolConfig {          // PDA ["config"]
+    pub admin: Pubkey,               // mag binnen de caps wijzigen (multisig aanbevolen)
+    pub treasury: Pubkey,            // ontvangt launch-fees en het tax-aandeel
+    pub protocol_tax_share_bps: u16, // standaard 1000 (10%)
+    pub launch_fee_lamports: u64,    // standaard 10_000_000 (0,01 SOL)
+    pub bump: u8,
     pub _reserved: [u8; 64],
 }
 ```
@@ -135,8 +169,9 @@ Alle tokenaccounts zijn `InterfaceAccount<'info, Mint/TokenAccount>`, alle token
 | `quote_vault` | idem | idem voor quote |
 | `token_program_token`, `token_program_quote` | `Interface<TokenInterface>` | |
 | `associated_token_program` | `Program<AssociatedToken>` | |
+| `config` | `Account<ProtocolConfig>` | `seeds = [b"config"], bump = config.bump` |
 
-Handler: valideert de params (`start ≤ 9900`, `end ≤ start`, `end ≤ MAX_END_BPS`, duur binnen grenzen) en de mint-policy (§6), en zet `status = Pending`.
+Handler: valideert de params (`start ≤ 9900`, `end ≤ start`, `end ≤ MAX_END_BPS`, duur binnen grenzen) en de mint-policy (§6), kopieert het tax-aandeel en de launch-fee uit `config`, en zet `status = Pending`.
 
 ### 5.2 `pipeline_market_info()`
 
@@ -165,11 +200,11 @@ Alleen-lezen. `pool: Account<LaunchPool>`, de andere 9 vaste accounts zijn `Unch
 
 Handler, in deze volgorde:
 
-1. `credited = credited_input(vault_balance, reserve_in + accrued_tax_in, amount_sent)`
+1. `credited = credited_input(vault_balance, reserve_in + accrued_tax_in + accrued_protocol_in, amount_sent)`
 2. `quote = pool.quote(trade, now)`, met tax, creator-check en CP-wiskunde
 3. `require!(quote.amount_in ≤ credited)`, `refund = credited − quote.amount_in`
 4. Refund en output via `transfer_checked`, getekend door de pool-PDA
-5. `reserve_in += effective_in`, `accrued_tax_in += tax`, `reserve_out −= amount_out`. Updates gebeuren via de trade zelf, niet via vault-saldi, zodat donaties buiten de prijs blijven.
+5. `reserve_in += effective_in`, `accrued_protocol_in += protocol_share`, `accrued_tax_in += tax − protocol_share`, `reserve_out −= amount_out`. Updates gebeuren via de trade zelf, niet via vault-saldi, zodat donaties buiten de prijs blijven.
 
 ### 5.5 `launch(amount_token: u64, amount_quote: u64)`: custom action, creator tekent
 
@@ -182,14 +217,18 @@ Handler, in deze volgorde:
 | `creator_quote` | idem | idem voor quote |
 | `token_vault`, `quote_vault` | `InterfaceAccount<TokenAccount>`, `mut` | via `has_one` |
 | token programs | `Interface<TokenInterface>` | |
+| `config` | `Account<ProtocolConfig>` | `seeds = [b"config"], bump = config.bump` |
+| `treasury` | `SystemAccount`, `mut` | `address = config.treasury @ WrongTreasury` |
+| `system_program` | `Program<System>` | |
 | remaining | hook-accounts | |
 
 Handler:
 
 1. Beide bedragen moeten groter dan 0 zijn.
 2. De mint-policy wordt opnieuw gecontroleerd (de freeze- en mint-authority kunnen sinds init veranderd zijn).
-3. Er wordt gecrediteerd **wat aankwam**: vault-saldo na min vóór, wat transfer-fee-tokens afvangt.
-4. `launch_ts = Clock.unix_timestamp`, `status = Live`.
+3. De launch-fee `min(pool.launch_fee_lamports, config.launch_fee_lamports)` gaat met een system-transfer van `creator` naar `treasury` (overgeslagen bij 0).
+4. Er wordt gecrediteerd **wat aankwam**: vault-saldo na min vóór, wat transfer-fee-tokens afvangt.
+5. `launch_ts = Clock.unix_timestamp`, `status = Live`.
 
 ### 5.6 `claim_tax()`: custom action, creator tekent
 
@@ -204,9 +243,27 @@ Handler:
 
 Handler: zet `accrued_tax_quote` op 0 **vóór** de transfer (checks-effects-interactions) en maakt het bedrag over met `transfer_checked`.
 
-### 5.7 Foutcodes
+### 5.7 `sweep_protocol_fees()`: custom action, iedereen mag hem aanroepen
 
-`BadInitData`, `NotPipeline`, `WrongAccount`, `TraderMismatch`, `NotCreator`, `NotLive`, `AlreadyLaunched`, `OneSidedDeposit`, `InsufficientInput`, `InsufficientLiquidity`, `NothingToClaim`, `ForbiddenMintExtension`, `FreezeAuthorityPresent`, `MintAuthorityPresent`, `MathOverflow`.
+| Account | Type | Constraints |
+|---|---|---|
+| `pool` | `Account<LaunchPool>`, `mut` | `has_one = quote_mint`, `has_one = quote_vault`, `constraint = accrued_protocol_quote > 0 @ NothingToClaim` |
+| `config` | `Account<ProtocolConfig>` | `seeds = [b"config"], bump = config.bump` |
+| `quote_mint` | `InterfaceAccount<Mint>` | `mint::token_program = token_program_quote` |
+| `quote_vault` | `InterfaceAccount<TokenAccount>`, `mut` | via `has_one` |
+| `treasury_quote` | `InterfaceAccount<TokenAccount>`, `mut` | `associated_token::{mint = quote_mint, authority = config.treasury, token_program = token_program_quote}` |
+| `token_program_quote` | `Interface<TokenInterface>` | |
+
+Handler: zet `accrued_protocol_quote` op 0 en maakt het bedrag over naar de treasury. Omdat de bestemming vastligt, is permissionless veilig.
+
+### 5.8 `initialize_config(...)` en `update_config(...)`: beheer
+
+- `initialize_config`: alleen de upgrade authority van het programma, één keer. Gecontroleerd via `program.programdata_address() == Some(program_data.key())` en `program_data.upgrade_authority_address == Some(signer)`. Maakt `config` aan met `init, seeds = [b"config"], bump`.
+- `update_config`: `has_one = admin`. Valideert `protocol_tax_share_bps ≤ 2000` en `launch_fee_lamports ≤ 0,05 SOL`. Kan `admin` en `treasury` wijzigen.
+
+### 5.9 Foutcodes
+
+`BadInitData`, `NotPipeline`, `WrongAccount`, `TraderMismatch`, `NotCreator`, `NotLive`, `AlreadyLaunched`, `OneSidedDeposit`, `InsufficientInput`, `InsufficientLiquidity`, `NothingToClaim`, `ForbiddenMintExtension`, `FreezeAuthorityPresent`, `MintAuthorityPresent`, `MathOverflow`, `WrongTreasury`, `FeeAboveCap`, `NotUpgradeAuthority`.
 
 ## 6. Token-2022-beleid (launch-token)
 
@@ -258,7 +315,7 @@ Pipeline-Sniper-Tax/
 
 | # | Aanval | Mitigatie |
 |---|---|---|
-| A1 | Opgebouwde tax in de quote-vault wordt bij de volgende swap als "gratis input" gecrediteerd | `credited_input(vault, reserve + accrued_tax, amount_sent)` plus een regressietest |
+| A1 | Opgebouwde tax of dev-fee in de quote-vault wordt bij de volgende swap als "gratis input" gecrediteerd | `credited_input(vault, reserve + accrued_tax + accrued_protocol, amount_sent)` plus een regressietest |
 | A2 | Sniper roept `pipeline_swap` direct aan (zonder router en zonder fee) met trader = creator | `market_signer` moet de router-PDA zijn en tekenen. Alleen de router kan dat |
 | A3 | Sniper geeft `trade.trader = creator` mee | De router zet die waarde zelf. We controleren ook `trade.trader == accounts[2]` |
 | A4 | Iemand maakt de pool van de creator eerder aan (front-run `create_market`) | Het adres bevat creator en params, dus het resultaat is identiek aan wat de creator wilde. De frontend slaat dan `create_market` over. `launch` vereist nog steeds de creator. Aanbevolen is één atomaire tx |
@@ -273,6 +330,10 @@ Pipeline-Sniper-Tax/
 | A13 | Handelen vóór de launch | `status == Live`-check plus de regel dat een lege reserve niet geprijsd wordt |
 | A14 | Creator zet de vrijstelling in voor anderen (koopt voor derden) | Bekende beperking: de creator kan dat altijd. Documenteren |
 | A15 | Tokens worden buiten deze pool verhandeld (andere DEX) | Buiten onze macht. De tax beschermt alleen deze pool. Bij launch heeft de creator de hele supply, dus er is geen andere liquiditeit tenzij de creator die zelf maakt |
+| A16 | De admin verhoogt de fees van bestaande pools | Fees liggen per pool vast bij init. De launch-fee is `min(snapshot, huidig)`. Harde caps in de code |
+| A17 | Een nep-`config` wordt meegegeven | `Account<ProtocolConfig>` met `seeds = [b"config"]` |
+| A18 | De dev-fee wordt naar een verkeerd account gesweept | De bestemming moet de ATA van `config.treasury` zijn |
+| A19 | De admin-key wordt gestolen | De schade blijft binnen de caps en geldt alleen voor nieuwe pools. Aanbevolen: admin op een multisig (bijvoorbeeld Squads) |
 
 ## 9. Testplan
 
@@ -296,6 +357,8 @@ Pipeline-Sniper-Tax/
 9. Swap vóór de launch, een tweede `launch` en een `launch` door een niet-creator falen allemaal.
 10. Exact-out: koop, refund, afronding.
 11. Compute: quote < 200k CU (de quoter-cap) en een swap ruim binnen budget.
+12. Dev-fee: de verdeling klopt (creator plus dev is precies de tax), `sweep_protocol_fees` gaat alleen naar de treasury-ATA, en de launch-fee komt aan bij de treasury.
+13. Config: alleen de upgrade authority kan hem aanmaken, alleen de admin kan hem wijzigen, waarden boven de cap worden geweigerd, en een wijziging raakt bestaande pools niet.
 
 **Token-2022:**
 
@@ -310,7 +373,7 @@ Pipeline-Sniper-Tax/
 |---|---|---|
 | 0 | Repo-skelet, toolchain, CI, git-dependency op Pipeline, router-`.so` in de testharness | CI groen op een leeg programma |
 | 1 | `sniper-tax-math` met property-tests | Alle invarianten uit §9 groen |
-| 2 | Anchor-programma: state, de 5 Pipeline-instructies, `launch` en `claim_tax`, mint-policy | `cargo build-sbf` slaagt |
+| 2 | Anchor-programma: state, de 5 Pipeline-instructies, `launch`, `claim_tax`, `sweep_protocol_fees`, config-beheer, mint-policy | `cargo build-sbf` slaagt |
 | 3 | LiteSVM-integratie- en adversariële tests (§9) | Alle tests groen |
 | 4 | Token-2022-tests | Alle tests groen |
 | 5 | Metadata-JSON, TS-smoketest, deploy op devnet en `register_strategy` | Een demo-launch met 90 s tax handelt via Pipeline op devnet |
@@ -322,7 +385,7 @@ Pipeline-Sniper-Tax/
 
 ## 11. Beslissingen
 
-B1–B8 zijn goedgekeurd zoals aanbevolen:
+Alle beslissingen zijn genomen. B1–B8 zijn goedgekeurd zoals aanbevolen, B9 is gekozen als A plus een kleine B:
 
 | # | Vraag | Besluit |
 |---|---|---|
@@ -334,9 +397,4 @@ B1–B8 zijn goedgekeurd zoals aanbevolen:
 | B6 | Exact-out ondersteunen? | Ja |
 | B7 | Markt-type | Constant-product met echte liquiditeit (v1); bonding curve met virtuele reserve eventueel in v2 |
 | B8 | Permanente fee na het venster (`end_bps`) | 0% standaard, max 5% |
-
-Nog open:
-
-| # | Vraag | Opties |
-|---|---|---|
-| B9 | Verdienmodel voor de dev van het programma | Een aandeel in de sniper tax / een vaste launch-fee in SOL / een kleine fee op elke swap / een combinatie / geen. Altijd met harde caps in de code en vastgezet per pool bij aanmaak |
+| B9 | Verdienmodel voor de dev van het programma | 10% van de sniper tax (cap 20%) plus 0,01 SOL per launch (cap 0,05 SOL), vastgezet per pool. Zie §3.5 |
