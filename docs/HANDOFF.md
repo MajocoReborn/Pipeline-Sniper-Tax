@@ -63,6 +63,7 @@ cargo mutants -p sniper-tax-math
 | `launch_pool` | 24 integratietests |
 | `extremes` | 4 tests |
 | `stress` | 2 tests |
+| `findings` | 1 test: bewijs voor bevinding H1 uit `SECURITY-REVIEW.md`. Hij legt het huidige gedrag vast en draait om zodra H1 is opgelost |
 | `transfer_hook` | 2 tests. Alle paden waarin het programma transfers doet: `launch`, swap-output, refund, `claim_tax` en `sweep_protocol_fees`. Met exacte tellerstanden; zonder hook-accounts falen ze netjes |
 | Lange stressrun | 43.139 trades, waarvan 12.814 belaste kopen, zonder één geschonden invariant |
 | Mutatietest | 78 van 79 mutanten gevangen |
@@ -123,7 +124,7 @@ Deze punten veranderen de binary (valkuil 1). Upgraden op hetzelfde adres kan al
 
 ## Open punten
 
-1. **Fase 6:** een review- of audit-ronde.
+1. **Fase 6:** de zelf-review staat in [`SECURITY-REVIEW.md`](SECURITY-REVIEW.md). Twee hoge bevindingen (H1 fee-authority, H2 transfer hook) vragen een programmawijziging en een nieuwe deploy. Daarna een externe audit.
 2. **Voor mainnet:**
    - een eigen programma-keypair;
    - de treasury en de config-admin op een multisig, bijvoorbeeld Squads;

@@ -20,7 +20,7 @@ pub const TOKEN_INDEX: u8 = 0;
 pub const QUOTE_INDEX: u8 = 1;
 
 /// The most SOL a pool's setup may borrow from whoever calls `create_market`. Setup needs
-/// about 0.0073 SOL of rent; the router returns what isn't spent.
+/// well under 0.01 SOL of rent; the router returns what isn't spent.
 pub const MAX_SETUP_LAMPORTS: u64 = 100_000_000;
 
 // ---------------------------------------------------------------------------------------

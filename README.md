@@ -11,6 +11,7 @@ Werkt met SPL Token en Token-2022.
 
 | Pad | Inhoud |
 |---|---|
+| `docs/SECURITY-REVIEW.md` | Zelf-review: bevindingen, bewijs en aanbevolen oplossingen |
 | `docs/PLAN.md` | Ontwerp, account-validatie, dreigingsmodel, testplan en fasering |
 | `crates/sniper-tax-math` | Pure wiskunde: tax-curve, tax-verdeling en constant-product-prijzen, met property-tests |
 | `programs/sniper-tax` | Het Anchor-programma: de Pipeline-strategy |

@@ -401,6 +401,11 @@ Pipeline-Sniper-Tax/
   - Mutatietest van de wiskunde: 78 van 79 mutanten gevangen; de overblijver is gelijkwaardig aan de originele code.
   - Overdracht voor een volgende sessie: `docs/HANDOFF.md`.
 - **Opgeschoond:** een client-crate (`crates/sniper-tax-client`) voor types en instructies, gebruikt door de tests en de devnet-tool. Duidelijkere testopties (`MintSpec`, `QuoteMint`). De binary van het programma is ongewijzigd.
+- **Fase 6, zelf-review:** [`SECURITY-REVIEW.md`](SECURITY-REVIEW.md). Twee hoge bevindingen voor de bescherming van kopers:
+  - H1: een fee-authority kan later een honeypot maken; bewezen met een test;
+  - H2: een transfer hook kan verkopen blokkeren.
+
+  Daarnaast operationele punten (M1: multisig of bevriezen) en kleinere punten. Geen bevinding laat iemand zonder medewerking van de creator of de beheerder geld uit een pool halen.
 
 ## 11. Beslissingen
 
