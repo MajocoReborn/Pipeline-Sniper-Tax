@@ -519,4 +519,37 @@ mod tests {
         assert_eq!(accounted_balance(1, 2, 3), 6);
         assert_eq!(accounted_balance(u64::MAX, 1, 1), u64::MAX);
     }
+
+    #[test]
+    fn a_full_tax_has_no_gross_input() {
+        // At 100% or more nothing trades, so no input is enough (and nothing divides by 0).
+        assert_eq!(gross_for_effective(1, 10_000), None);
+        assert_eq!(gross_for_effective(1, u16::MAX), None);
+        assert_eq!(gross_for_effective(0, 10_000), Some(0));
+        assert_eq!(gross_for_effective(1, 9_999), Some(10_000));
+    }
+
+    #[test]
+    fn an_empty_side_refuses_even_zero_and_tiny_trades() {
+        // Without the explicit check, a zero-input or zero-output trade on an empty side
+        // would slip through the other arithmetic.
+        for (reserve_in, reserve_out) in [(0, 1_000), (1_000, 0), (0, 0)] {
+            let pricing = Pricing {
+                reserve_in,
+                reserve_out,
+                tax_bps: 0,
+                protocol_share_bps: 0,
+            };
+            assert_eq!(
+                pricing.quote_exact_in(0),
+                Err(MathError::InsufficientLiquidity),
+                "exact-in on ({reserve_in}, {reserve_out})"
+            );
+            assert_eq!(
+                pricing.quote_exact_out(0),
+                Err(MathError::InsufficientLiquidity),
+                "exact-out on ({reserve_in}, {reserve_out})"
+            );
+        }
+    }
 }

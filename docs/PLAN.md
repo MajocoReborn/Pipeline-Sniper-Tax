@@ -392,6 +392,11 @@ Pipeline-Sniper-Tax/
 
   De metadata-URI in de registratie wijst naar `main`. Hij werkt pas zodra deze PR gemerged is.
 - **Fase 4, deels:** transfer-fee-tokens als launch-token en als quote-mint, en geweigerde mints (permanent delegate, freeze- en mint-authority) zijn getest. Transfer hooks nog niet: daarvoor is een klein test-hook-programma nodig.
+- **Extra testen:**
+  - `extremes.rs`: een supply van bijna u64-max, dust bij 99% tax, de pool proberen leeg te kopen, exact-out op de rand.
+  - `stress.rs`: een willekeurige reeks trades, tijdsprongen, claims, sweeps en donaties. Na elke stap controleert hij dat de quote exact gelijk is aan de swap en aan de wiskunde, dat de vault-boekhouding exact klopt, dat k nooit daalt, en dat er geen token of lamport verdwijnt. Een lange run van 60.000 stappen gaf 43.139 trades zonder één fout.
+  - Mutatietest van de wiskunde: 78 van 79 mutanten gevangen; de overblijver is gelijkwaardig aan de originele code.
+  - Overdracht voor een volgende sessie: `docs/HANDOFF.md`.
 
 ## 11. Beslissingen
 
