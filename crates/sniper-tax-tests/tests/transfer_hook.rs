@@ -30,7 +30,9 @@ fn a_hooked_launch_token_launches_and_trades_both_ways() {
     );
 
     // Without the hook's accounts the token transfer can't run.
-    assert!(env.send(&[launch.clone()], &[&creator]).is_err());
+    assert!(env
+        .send(std::slice::from_ref(&launch), &[&creator])
+        .is_err());
     env.send(&[with_hooks(launch, &hooks)], &[&creator])
         .expect("launch");
     assert_eq!(env.hook_count(&pool.token_mint), 1);
@@ -141,7 +143,7 @@ fn a_hooked_quote_mint_works_for_buys_refunds_claims_and_sweeps() {
 
     // The creator's claim needs the hook's accounts too.
     let claim = pool.claim_tax_ix(&creator.pubkey(), &pool.creator_quote);
-    assert!(env.send(&[claim.clone()], &[&creator]).is_err());
+    assert!(env.send(std::slice::from_ref(&claim), &[&creator]).is_err());
     let before = env.token_balance(&pool.creator_quote);
     env.send(&[with_hooks(claim, &hooks)], &[&creator])
         .expect("claim");
