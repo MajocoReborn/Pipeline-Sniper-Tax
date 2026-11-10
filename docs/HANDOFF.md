@@ -122,6 +122,32 @@ Deze punten veranderen de binary (valkuil 1). Upgraden op hetzelfde adres kan al
 - **De devnet-tool** praat JSON-RPC via `curl`. Dat werkt en houdt de tool klein; een echte RPC-client (`solana-rpc-client`) trekt veel dependencies mee voor een hulpscript.
 - **Taal:** de docs zijn Nederlands, code en commentaar Engels.
 
+## Volgende stap: vier keuzes van de eigenaar
+
+Deze keuzes waren nog niet gemaakt toen de vorige sessie stopte. Vraag ze eerst. De aanbeveling staat bovenaan.
+
+1. **H1, fee-bevoegdheid:**
+   - **a)** de `transfer_fee_config_authority` moet `None` zijn en de fee hooguit 5% (aanbevolen);
+   - **b)** transfer fees op het launch-token weigeren;
+   - **c)** zo laten.
+2. **H2, transfer hooks:**
+   - **a)** hooks op het launch-token weigeren (aanbevolen);
+   - **b)** alleen hooks zonder authority en met een onveranderbaar hook-programma;
+   - **c)** zo laten.
+3. **Kleine programmapunten** (I1, I2, L1, L2 uit de review):
+   - **a)** meenemen in dezelfde versie (aanbevolen);
+   - **b)** alleen H1 en H2.
+4. **Deploy:**
+   - **a)** de eigenaar upgradet zelf lokaal met zijn wallet; de sessie levert de build en de exacte opdracht (aanbevolen);
+   - **b)** een nieuw devnet-adres vanuit de cloud, met ongeveer 3 devnet-SOL van de eigenaar;
+   - **c)** nog niet deployen.
+
+**Na de wijziging:**
+- `tests/findings.rs` draait om: H1 moet geweigerd worden.
+- Verwijder of pas aan wat niet meer mag: de hook-tests voor het launch-token, en de tests met een fee-authority.
+- Draai de volledige reeks: fmt en clippy in alle drie de workspaces, beide sBPF-builds, de router-pin, alle tests, de lange stresstest en de mutatietest.
+- Leg de nieuwe sha256 vast, en de versie op devnet als die verandert.
+
 ## Open punten
 
 1. **Fase 6:** de zelf-review staat in [`SECURITY-REVIEW.md`](SECURITY-REVIEW.md). Twee hoge bevindingen (H1 fee-authority, H2 transfer hook) vragen een programmawijziging en een nieuwe deploy. Daarna een externe audit.
