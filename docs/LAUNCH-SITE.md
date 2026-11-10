@@ -35,7 +35,13 @@ display, the token page, and the creator's claim.
    - supply (fixed by default: 1,000,000,000 tokens, 6 decimals);
    - share of the supply in the pool (default 100%; anything kept by the creator is shown on the token page);
    - SOL liquidity for the pool;
-   - tax schedule: presets 90 s and 10 min, starting at 99%; permanent fee after the window 0% by default, at most 5%.
+   - tax schedule, one of three presets (decision S8: the sniper tax is always on):
+     - **Strong:** 99% falling to 0% over 10 minutes;
+     - **Normal:** 99% falling to 0% over 90 seconds;
+     - **Mild:** 50% falling to 0% over 60 seconds;
+   - a permanent fee after the window: 0% by default, at most 5%.
+
+   The site never offers a launch without sniper tax, although the program would accept 0%.
 3. Preview: every cost before signing (rent for mint, metadata, pool and vaults; the 0.01 SOL launch fee; Pipeline's fee accounts) and exactly what the creator will hold afterwards.
 4. Sign two transactions (one transaction is too small for both, 1,232 bytes):
    - **Token:** a Token-2022 mint with built-in metadata (MetadataPointer + TokenMetadata, both allowed by the policy). Mint the supply to the creator, then revoke the mint authority. No freeze authority. Set the metadata update authority to `None`, so the name and image can't change after launch (review finding L3).
@@ -106,6 +112,7 @@ The site builds transactions that move users' money, so:
 | S5 | Site fee per trade | Decide before mainnet; 0% on devnet. A typical front-end fee is 0.5–1% |
 | S6 | Creator's share outside the pool | Default 0%, allowed up to e.g. 20%, always shown |
 | S7 | Name and domain | Owner's choice |
+| S8 | Is the sniper tax always on, or optional? | **Decided (10 November): always on**, with an adjustable strength (the presets in 3.1). Every launch on the site protects buyers, and the protocol earns on every tax. Making it optional later is a small site change, since the program accepts 0% |
 
 ## 9. Out of scope for now
 
