@@ -91,6 +91,7 @@ cargo mutants -p sniper-tax-math
 | Long stress run | 43,139 trades, 12,814 of them taxed buys, without a single broken invariant |
 | Mutation test | 78 of 79 mutants caught (84 found, 5 unviable). Because of the one survivor, `cargo mutants` exits with code 2 |
 | `app` (`npm test`) | 37 tests: the TypeScript client against the Rust client's vectors (21), the launch form, both transactions and the cost preview (12), SOL amounts and display (4). The devnet test is skipped without `DEVNET_E2E` |
+| `app/test/devnet.e2e.test.ts` | 1 test, about 7 s on devnet: a launch and a taxed buy through the router (passed on 10 November, see Devnet) |
 
 The one surviving mutant is equivalent to the original code: the filter `*reserve > 0` in `Pricing::settle` can never trigger, because `check_liquidity` and the formulas already rule that case out.
 
@@ -186,6 +187,17 @@ After the upgrade nothing else is needed on-chain: the pool and config layouts a
 
 The new wallet was derived with Phantom's path (`solana-keygen recover 'prompt://?key=0/0'`), so its seed phrase gives the same address in a wallet app. `solana-keygen new` derives without a path, which gives a different address from the same words.
 
+**Launches from the site (10 November).** The first launches built by the site's code, paid by a throwaway key (`5frqE7XgGfsz6bmjCK4ABpkChuGJEsFcZSURNxL53vve`, funded with 0.4 devnet SOL from the devnet wallet; its key was never in the repository):
+
+| Launched by | Token | Pool | Pipeline market |
+|---|---|---|---|
+| `app/test/devnet.e2e.test.ts` | `FvwwZZNuXmuCXEhP7y8Zsr9i7WYwL9Z7GvVMEFsPxxcw` (Site E2E Test) | `GAw4Zbn3Z26t1k9otfHerR4zZYSbEXtD8P9Yun9sfFdj` | `EvXtpuXsMQi5ZPhQKHQCA7GNPyN7u5RRsLoPWfGd1TuC` |
+| The page in Chromium, with a stand-in wallet | `7Ef6T3cgMsrcbg2qk2ZehVVMYBrWN9kjvzNeH8ZhACWY` (Site UI Test) | `6jb2KV5UD9GxYihd2aieHKh1PKPQpnP6Wku95qGMstTA` | `2YT9jEF5i4kg15883cwyCtuuHSuMrUrFTeqLPmPCbZVv` |
+
+- **Cost:** both launches cost exactly what the preview showed, to the lamport. The page's launch cost 0.125255 SOL: 0.1 into the pool, and 0.025255 for rent, the 0.01 launch fee and the transaction fees. The token transaction used 38,209 compute units and the pool transaction 200,390, within the default limit of 200,000 per instruction.
+- **The sniper tax through the router:** in the end-to-end test another wallet bought with 0.01 SOL, 2 seconds after the launch. It paid 96.8% tax (9,680,000 lamports: 8,712,000 for the creator, 968,000 for the protocol) and received 2,870,813 tokens; without the tax it would have received about 81.8 million.
+- **Through Pipeline's API:** a quote 48 seconds after the page's launch included the tax (about 46%). After the window, a fresh wallet bought with 0.005 SOL using `/v1/swap-transaction`, checked and simulated before signing, and received the quoted 42,857,142 tokens. The API lists both markets with the mint flags (no mint or freeze authority, metadata update authority `null`) and both trades.
+
 **Administration.** `config` moves the treasury (keeping the fees) and, with `ADMIN`, proposes a new admin. The new admin takes over with `accept-admin`, with their own wallet as `KEYPAIR`. Until then, the current admin stays in charge. The metadata URI in the registration points to `main`. It only works after PR #1 is merged, and only if the repo is public.
 
 ## Cleaned up
@@ -246,7 +258,7 @@ In addition, the unchanged source (commit `8bb831b`) built exactly `222ee769…`
 
 ## Open items
 
-1. **Launch site:** the plan in [`LAUNCH-SITE.md`](LAUNCH-SITE.md) is approved (the name and domain come later). Milestone 1, the TypeScript client, is done. Milestone 2, the launch page, is built; its devnet run is in `LAUNCH-SITE.md` once done. Next is milestone 3, the launch list and token page.
+1. **Launch site:** the plan in [`LAUNCH-SITE.md`](LAUNCH-SITE.md) is approved (the name and domain come later). Milestones 1 (the TypeScript client) and 2 (the launch page, proven on devnet) are done. Next is milestone 3: the launch list and the token page, with trading.
 2. **Optional:** run `demo` on devnet (about 0.2 SOL) to see a full launch on the new version.
 3. **Phase 6:** the self-review is in [`SECURITY-REVIEW.md`](SECURITY-REVIEW.md). H1, H2, L1, L2, I1 and I2 are fixed. Still open: M1 and M2 (operational), L3 (display extensions) and the residual risk of a hook on the quote mint. After that, an external audit.
 4. **Before mainnet:**
