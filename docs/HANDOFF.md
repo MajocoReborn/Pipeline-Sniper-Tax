@@ -12,9 +12,12 @@ the same day (slot 520838510); see "Devnet".
 ## Repo and branch
 
 - Repo: `MajocoReborn/Pipeline-Sniper-Tax`.
-- All work is on branch `claude/sleepy-faraday-1fldh4`, in draft PR #1 to `main`. `main` holds
-  only the first commit (the plan). As long as PR #1 is not merged, continue on that branch, or
-  merge it first.
+- PR #1 (`claude/sleepy-faraday-1fldh4`) was merged into `main` on 10 November 2026 (merge
+  commit `6756dc6`). New work starts on a fresh branch from `main`.
+- The repo is public, so the strategy metadata on `main` is reachable: Pipeline's API reports it
+  `valid` since 10 November. If the repo goes private again, it turns `metadata-unreachable`;
+  then host the metadata elsewhere and update the registration's URI (the router has
+  `update_metadata`).
 - CI (`.github/workflows/ci.yml`) is a single job:
   - formatting and clippy;
   - the sBPF build of the program;
@@ -80,6 +83,7 @@ The one surviving mutant is equivalent to the original code: the filter `*reserv
 
 1. **Line numbers are in the binary.** Anchor puts the file and line number in error messages. Every shifted line in `programs/sniper-tax/src/*.rs` gives a different binary.
    - The current source gives sha256 `9f24dafa0168585de8e15a519a178ed14e6e2bb7d3f8443862eff1db6379f7cd` (375,568 bytes), also from a clean build.
+   - Pipeline's API and `solana-verify get-program-hash` show the same program as `987678b54d6f68a6…`: they hash the code with its trailing zero bytes removed, not the whole `.so` file.
    - Devnet runs this version since 10 November (slot 520838510). Before that it ran `222ee7691fe1b9ca344f0831b5b9ead3b863a59ba38c26c5384a105a92f09c3a`, the build of commit `8bb831b`.
    - The build does not depend on the directory the repo is in: dependencies appear in the binary with paths relative to their crate. `cargo-build-sbf` 4.6.0 (platform tools v1.58) and the lockfile determine the result.
    - Cleaning up the program means: deploying again (an upgrade) on devnet, or accepting that devnet runs an older version.
@@ -223,7 +227,7 @@ In addition, the unchanged source (commit `8bb831b`) built exactly `222ee769…`
 
 ## Open items
 
-1. **Merge PR #1**, so the metadata URI (which points to `main`) resolves and Pipeline stops flagging the strategy `metadata-unreachable`. This also needs the repo to be public; if it stays private, host the metadata elsewhere and point the registration there.
+1. **Launch site:** the plan is in [`LAUNCH-SITE.md`](LAUNCH-SITE.md), awaiting the owner's decisions (S1–S7) before any code.
 2. **Optional:** run `demo` on devnet (about 0.2 SOL) to see a full launch on the new version.
 3. **Phase 6:** the self-review is in [`SECURITY-REVIEW.md`](SECURITY-REVIEW.md). H1, H2, L1, L2, I1 and I2 are fixed. Still open: M1 and M2 (operational), L3 (display extensions) and the residual risk of a hook on the quote mint. After that, an external audit.
 4. **Before mainnet:**

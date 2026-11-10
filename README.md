@@ -17,6 +17,7 @@ above 5%.
 | `docs/SECURITY-REVIEW.md` | Self-review: findings, evidence, fixes and their tests |
 | `docs/PLAN.md` | Design, account validation, threat model, test plan and phases |
 | `docs/HANDOFF.md` | Current state, commands, pitfalls and devnet details, for the next session |
+| `docs/LAUNCH-SITE.md` | Plan for the launch website (awaiting approval) |
 | `crates/sniper-tax-math` | Pure maths: the tax curve, the tax split and constant-product pricing, with property tests |
 | `programs/sniper-tax` | The Anchor program: the Pipeline strategy |
 | `crates/sniper-tax-client` | Addresses, account types and instruction builders, for launchers, scripts and integrators |
