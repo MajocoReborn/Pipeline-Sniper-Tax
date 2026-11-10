@@ -8,7 +8,7 @@
 | | |
 |---|---|
 | Program | `programs/sniper-tax`. Reviewed: sha256 `222ee7691fe1b9ca344f0831b5b9ead3b863a59ba38c26c5384a105a92f09c3a`, the version on devnet (`EZwLuZ8mSiBoeKtbHwQK4kxCqqj4JuureT1kHpTK3i6b`) |
-| Fixes | Version with sha256 `9f24dafa0168585de8e15a519a178ed14e6e2bb7d3f8443862eff1db6379f7cd` (10 November 2026). Fixes H1, H2, L1, L2, I1 and I2. Runs on devnet once the owner upgrades (see `HANDOFF.md`) |
+| Fixes | Version with sha256 `9f24dafa0168585de8e15a519a178ed14e6e2bb7d3f8443862eff1db6379f7cd` (10 November 2026). Fixes H1, H2, L1, L2, I1 and I2. Live on devnet since 10 November 2026 (slot 520838510), checked on-chain |
 | Also covered | `crates/sniper-tax-math` (the program's pricing) and the interaction with the Pipeline router (pinned devnet binary) |
 | Method | Every instruction and constraint walked through from an attacker's point of view. Each suspicion was, where possible, confirmed or refuted with a test against the real router. In addition: property tests, the stress test (60,000 steps) and the mutation test |
 
@@ -194,7 +194,7 @@ The creator exemption relies on the router passing on the signing trader. The ro
    - H2: hooks on the launch token refused;
    - L1 and L2, and the info points I1–I2.
 
-   This changed the binary. Only the owner can upgrade it on devnet, with their own wallet; the commands are in `HANDOFF.md`.
+   This changed the binary. The owner upgraded devnet to it on 10 November 2026 (slot 520838510); the steps are in `HANDOFF.md`.
 2. **Before mainnet, operational:**
    - M1: a multisig, a timelock or freezing, and a verifiable build;
    - M2: transparency in the UI;

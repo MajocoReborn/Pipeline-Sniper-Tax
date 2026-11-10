@@ -416,7 +416,7 @@ Pipeline-Sniper-Tax/
   - H2: a transfer hook can block sells.
 
   Also operational points (M1: multisig or freezing) and smaller points. No finding lets anyone take money out of a pool without the cooperation of the creator or the administrator.
-- **Phase 6, fixes (10 November):** H1, H2, L1, L2, I1 and I2 fixed in the program, following B10–B13. The new binary (sha256 `9f24dafa0168585de8e15a519a178ed14e6e2bb7d3f8443862eff1db6379f7cd`) awaits the upgrade on devnet by the owner. Tests in `findings.rs` (6) and `transfer_hook.rs` (now on the quote mint). A manual mutation round on the new checks: 20 of 20 mutants caught.
+- **Phase 6, fixes (10 November):** H1, H2, L1, L2, I1 and I2 fixed in the program, following B10–B13. The new binary (sha256 `9f24dafa0168585de8e15a519a178ed14e6e2bb7d3f8443862eff1db6379f7cd`) is live on devnet since 10 November (slot 520838510). Tests in `findings.rs` (6) and `transfer_hook.rs` (now on the quote mint). A manual mutation round on the new checks: 20 of 20 mutants caught.
 - **Docs in English (10 November):** README, PLAN, HANDOFF and SECURITY-REVIEW translated from Dutch.
 
 ## 11. Decisions

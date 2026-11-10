@@ -6,8 +6,8 @@ it and what to watch out for.
 
 **Latest step (10 November):** findings H1, H2, I1, I2, L1 and L2 from the review are fixed in the
 program, following the owner's choices (see "The owner's choices"). The new binary has sha256
-`9f24dafa0168585de8e15a519a178ed14e6e2bb7d3f8443862eff1db6379f7cd`. Devnet still runs the old
-version (`222ee769…`) until the owner upgrades; the commands are under "Devnet".
+`9f24dafa0168585de8e15a519a178ed14e6e2bb7d3f8443862eff1db6379f7cd`. The owner upgraded devnet to it
+the same day (slot 520838510); see "Devnet".
 
 ## Repo and branch
 
@@ -80,7 +80,7 @@ The one surviving mutant is equivalent to the original code: the filter `*reserv
 
 1. **Line numbers are in the binary.** Anchor puts the file and line number in error messages. Every shifted line in `programs/sniper-tax/src/*.rs` gives a different binary.
    - The current source gives sha256 `9f24dafa0168585de8e15a519a178ed14e6e2bb7d3f8443862eff1db6379f7cd` (375,568 bytes), also from a clean build.
-   - Until the upgrade, devnet runs `222ee7691fe1b9ca344f0831b5b9ead3b863a59ba38c26c5384a105a92f09c3a`, the build of commit `8bb831b`.
+   - Devnet runs this version since 10 November (slot 520838510). Before that it ran `222ee7691fe1b9ca344f0831b5b9ead3b863a59ba38c26c5384a105a92f09c3a`, the build of commit `8bb831b`.
    - The build does not depend on the directory the repo is in: dependencies appear in the binary with paths relative to their crate. `cargo-build-sbf` 4.6.0 (platform tools v1.58) and the lockfile determine the result.
    - Cleaning up the program means: deploying again (an upgrade) on devnet, or accepting that devnet runs an older version.
 2. **The program address is in three places:** `declare_id!` in `programs/sniper-tax/src/lib.rs`, `PROGRAM_ID` in `crates/sniper-tax-client/src/lib.rs`, and the metadata JSON. The program keypair only existed in the old cloud environment. A fresh `cargo build-sbf` creates a new keypair in `target/deploy/`. The tests don't need it, because LiteSVM loads the `.so` at the fixed address; only deploying to a new address needs the keypair.
@@ -94,15 +94,16 @@ The one surviving mutant is equivalent to the original code: the filter `*reserv
 10. **New error codes go at the end only.** Anchor numbers error codes in order (6000, 6001, …). New codes therefore come after the existing ones in `errors.rs`, so clients keep the old numbers.
 11. **`update_config` has new arguments** (`ConfigUpdate`: treasury, tax share, launch fee; no admin any more). The old and new versions therefore don't fit together. After the upgrade, don't use an old build of the devnet tool; and use the new tool's `config` or `accept-admin` only after the upgrade: the old program doesn't know `propose_admin` and `accept_admin`, and refuses the new arguments of `update_config`.
 12. **The metadata names the treasury as a fixed address** (`metadata/sniper-tax.devnet.json`, for `launch` and `sweep_protocol_fees`). If the admin moves the treasury, update the metadata too. Otherwise `launch` from a terminal fails with `WrongTreasury`. Until 10 November it still named the old treasury `HcQgs…`.
+13. **The Solana CLI needs a keypair file** (a JSON array of 64 bytes). A wallet that exists only as a private key, or only in a wallet app, must first be turned into one, locally: from the seed phrase with `solana-keygen recover 'prompt://?key=0/0'`, or from the private key through a hidden prompt. Never paste a key or seed phrase into a chat. The 12 words the CLI prints during a deploy belong to the temporary buffer account, not to the wallet.
 
 ## Devnet
 
 | | |
 |---|---|
 | Program | `EZwLuZ8mSiBoeKtbHwQK4kxCqqj4JuureT1kHpTK3i6b` (registered with the Pipeline router) |
-| Upgrade authority, config admin and treasury | `DEwdbWGmGf6vdtRMkBXez2zJ71JbAaJ1DdD1s3bN8tYn` (the owner's wallet; 7.48 devnet SOL on 10 November) |
-| Version on devnet | sha256 `222ee769…` (slot 520494490). The new version `9f24dafa…` awaits the upgrade |
-| Config | `6wCct5q2tQ2WGfbtLcEzaH756aGnkMuSnnexaHmquL93`: 10% tax share, 0.01 SOL launch fee. The 64 reserved bytes are 0, so after the upgrade there is no proposed admin |
+| Upgrade authority, config admin and treasury | `DEwdbWGmGf6vdtRMkBXez2zJ71JbAaJ1DdD1s3bN8tYn` (the owner's wallet; 7.42 devnet SOL after the upgrade) |
+| Version on devnet | sha256 `9f24dafa0168585de8e15a519a178ed14e6e2bb7d3f8443862eff1db6379f7cd`, upgraded on 10 November 2026 at slot 520838510 (signature `3QJQDcHTB1dmS3YDvwz1KPPQ83eZi9yuzxigk8Ymw8pfWWzmpmN1seVdd7FfnhEDCpojaT5S4cCAQSYbeMURW2Vc`). Before that: `222ee769…` (slot 520494490) |
+| Config | `6wCct5q2tQ2WGfbtLcEzaH756aGnkMuSnnexaHmquL93`: 10% tax share, 0.01 SOL launch fee. `pending_admin` is empty (checked after the upgrade) |
 | Demo pool | `GeajhDYc24MyRecNv1a69nSsa2kdUtwbhLec6xpqVG3B` |
 
 **Deploying a new version.** Upgrading at the same address needs the owner's wallet, and that key is never in a cloud session. The owner therefore does the upgrade locally (choice 4a). On Windows, use WSL.
@@ -149,7 +150,9 @@ The one surviving mutant is equivalent to the original code: the filter `*reserv
 
    That must give the same hash. `head` cuts off the zeros that are there if the account was made larger than the binary. Then record the version on devnet in this table.
 
-After the upgrade nothing else is needed on-chain: the pool and config layouts are unchanged, and existing pools keep working. A new session can also deploy the program to a new address; then change the three places from pitfall 2.
+After the upgrade nothing else is needed on-chain: the pool and config layouts are unchanged, and existing pools keep working.
+
+**The upgrade of 10 November.** The owner deployed the binary built and tested in the cloud session, after checking its sha256 locally, so no local build was needed (for mainnet: build it yourself, or use a verifiable build). The CLI extended the ProgramData account by itself, to exactly 375,568 bytes, and closed the buffer; it cost about 0.067 SOL. Checked afterwards from the cloud session: the on-chain hash matches, the transaction is finalized, the config is intact, and a simulated `pipeline_quote` on the demo pool succeeds (3,775 compute units) with exactly the constant-product output, since its tax window is long over. A new session can also deploy the program to a new address; then change the three places from pitfall 2.
 
 **Administration.** `config` moves the treasury (keeping the fees) and, with `ADMIN`, proposes a new admin. The new admin takes over with `accept-admin`, with their own wallet as `KEYPAIR`. Until then, the current admin stays in charge. The metadata URI in the registration points to `main`. It only works after PR #1 is merged, and only if the repo is public.
 
@@ -211,9 +214,10 @@ In addition, the unchanged source (commit `8bb831b`) built exactly `222ee769…`
 
 ## Open items
 
-1. **Upgrade on devnet** by the owner (see "Devnet"). Then record the version on devnet.
-2. **Phase 6:** the self-review is in [`SECURITY-REVIEW.md`](SECURITY-REVIEW.md). H1, H2, L1, L2, I1 and I2 are fixed. Still open: M1 and M2 (operational), L3 (display extensions) and the residual risk of a hook on the quote mint. After that, an external audit.
-3. **Before mainnet:**
+1. **Merge PR #1**, so the metadata URI (which points to `main`) resolves and Pipeline stops flagging the strategy `metadata-unreachable`. This also needs the repo to be public; if it stays private, host the metadata elsewhere and point the registration there.
+2. **Optional:** run `demo` on devnet (about 0.2 SOL) to see a full launch on the new version.
+3. **Phase 6:** the self-review is in [`SECURITY-REVIEW.md`](SECURITY-REVIEW.md). H1, H2, L1, L2, I1 and I2 are fixed. Still open: M1 and M2 (operational), L3 (display extensions) and the residual risk of a hook on the quote mint. After that, an external audit.
+4. **Before mainnet:**
    - a dedicated program keypair;
    - the treasury and the config admin on a multisig, for example Squads;
    - decide whether to freeze the upgrade authority.
