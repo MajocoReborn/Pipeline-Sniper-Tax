@@ -182,7 +182,7 @@ A manual mutation round on the program confirms that the tests guard these check
 ## Deliberately left as is
 
 - **The devnet tool** speaks JSON-RPC through `curl`. That works and keeps the tool small; a real RPC client (`solana-rpc-client`) pulls in many dependencies for a helper script.
-- **Language:** docs, code and comments are in English.
+- **Language:** everything in the repository and on GitHub is in English; conversations with the owner are in Dutch (see `CLAUDE.md`).
 
 ## The owner's choices (10 November)
 
