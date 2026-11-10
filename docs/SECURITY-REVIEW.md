@@ -1,203 +1,203 @@
-# Beveiligingsreview (zelf-review, fase 6)
+# Security review (self-review, phase 6)
 
-> Dit is een interne review door dezelfde ontwikkelaar die de code schreef. Ze vervangt
-> geen externe audit; voor mainnet blijft die aan te raden.
+> This is an internal review by the same developer who wrote the code. It does not replace an
+> external audit; one is still recommended before mainnet.
 
 ## Scope
 
 | | |
 |---|---|
-| Programma | `programs/sniper-tax`. Gereviewd: sha256 `222ee7691fe1b9ca344f0831b5b9ead3b863a59ba38c26c5384a105a92f09c3a`, de versie op devnet (`EZwLuZ8mSiBoeKtbHwQK4kxCqqj4JuureT1kHpTK3i6b`) |
-| Oplossingen | Versie met sha256 `9f24dafa0168585de8e15a519a178ed14e6e2bb7d3f8443862eff1db6379f7cd` (10 november 2026). Lost H1, H2, L1, L2, I1 en I2 op. Draait op devnet zodra de eigenaar upgradet (zie `HANDOFF.md`) |
-| Mee bekeken | `crates/sniper-tax-math` (de prijsberekening van het programma) en de wisselwerking met de Pipeline-router (vastgepinde devnet-binary) |
-| Methode | Elke instructie en constraint nagelopen met een aanvallersblik. Elk vermoeden is waar mogelijk met een test op de echte router bevestigd of weerlegd. Daarnaast: property-tests, de stresstest (60.000 stappen) en de mutatietest |
+| Program | `programs/sniper-tax`. Reviewed: sha256 `222ee7691fe1b9ca344f0831b5b9ead3b863a59ba38c26c5384a105a92f09c3a`, the version on devnet (`EZwLuZ8mSiBoeKtbHwQK4kxCqqj4JuureT1kHpTK3i6b`) |
+| Fixes | Version with sha256 `9f24dafa0168585de8e15a519a178ed14e6e2bb7d3f8443862eff1db6379f7cd` (10 November 2026). Fixes H1, H2, L1, L2, I1 and I2. Runs on devnet once the owner upgrades (see `HANDOFF.md`) |
+| Also covered | `crates/sniper-tax-math` (the program's pricing) and the interaction with the Pipeline router (pinned devnet binary) |
+| Method | Every instruction and constraint walked through from an attacker's point of view. Each suspicion was, where possible, confirmed or refuted with a test against the real router. In addition: property tests, the stress test (60,000 steps) and the mutation test |
 
-## Samenvatting
+## Summary
 
-| ID | Ernst | Bevinding | Bewijs | Status |
+| ID | Severity | Finding | Evidence | Status |
 |---|---|---|---|---|
-| H1 | Hoog | De fee-bevoegdheid van een token kan de pool later in een honeypot veranderen | `tests/findings.rs` | **Opgelost**: fee-authority moet `None` zijn, fee hooguit 5% |
-| H2 | Hoog | Een transfer hook kan verkopen blokkeren (honeypot) | Pipeline's eigen test `restrictive_hook_blocks_selling…` en `ROUTER.md` | **Opgelost** voor het launch-token; op de quote-mint bewust toegestaan |
-| M1 | Middel | Eén wallet is upgrade authority én config-admin | Configuratie op devnet | Open: operationeel |
-| M2 | Middel | De creator heeft door het ontwerp voordelen tegenover kopers | Ontwerp (§3 van PLAN) | Open: transparant maken |
-| L1 | Laag | Een verkeerde treasury of launch-fee kan alle launches laten falen | Code-analyse | **Opgelost** voor de launch-fee; de treasury-eis is gedocumenteerd |
-| L2 | Laag | De config-admin kan in één stap naar een onbruikbaar adres gaan | Code-analyse | **Opgelost**: overdracht in twee stappen |
-| L3 | Laag | Weergave-extensies kunnen na de launch misleiden | Code-analyse | Open |
-| L4 | Laag | De tijd op de chain kan enkele seconden afwijken | Ontwerp | Geaccepteerd |
-| L5 | Laag | Een programma als creator kan belastingvrij kopen aanbieden | Ontwerp | Geaccepteerd, vermelden |
-| L6 | Laag | Afhankelijk van de upgradebare Pipeline-router | Router-upgrade van 9 november | Bewaakt door de vastgepinde router |
-| I1–I4 | Info | Cosmetica en kleine punten | Zie onder | I1 en I2 opgelost; I3 en I4 bewust zo gelaten |
+| H1 | High | A token's fee authority can later turn the pool into a honeypot | `tests/findings.rs` | **Fixed**: the fee authority must be `None`, the fee at most 5% |
+| H2 | High | A transfer hook can block sells (honeypot) | Pipeline's own test `restrictive_hook_blocks_selling…` and `ROUTER.md` | **Fixed** for the launch token; deliberately allowed on the quote mint |
+| M1 | Medium | One wallet is both upgrade authority and config admin | Configuration on devnet | Open: operational |
+| M2 | Medium | By design, the creator has advantages over buyers | Design (§3 of PLAN) | Open: make it transparent |
+| L1 | Low | A wrong treasury or launch fee can make every launch fail | Code analysis | **Fixed** for the launch fee; the treasury requirement is documented |
+| L2 | Low | The config admin can move to an unusable address in one step | Code analysis | **Fixed**: two-step transfer |
+| L3 | Low | Display extensions can mislead after launch | Code analysis | Open |
+| L4 | Low | On-chain time can be off by a few seconds | Design | Accepted |
+| L5 | Low | A program as creator can offer tax-free buys | Design | Accepted, to be disclosed |
+| L6 | Low | Depends on the upgradeable Pipeline router | Router upgrade of 9 November | Guarded by the pinned router |
+| I1–I4 | Info | Cosmetics and small points | See below | I1 and I2 fixed; I3 and I4 deliberately left as they are |
 
-Geen enkele bevinding laat iemand **zonder medewerking van de creator of de beheerder** geld uit een pool halen. H1 en H2 gaan over de bescherming van kopers tegen een kwaadwillende creator. Juist dat is de belofte van een launchpad.
+No finding lets anyone take money out of a pool **without the cooperation of the creator or the administrator**. H1 and H2 are about protecting buyers from a malicious creator. That is exactly the promise of a launchpad.
 
-## Bevindingen
+## Findings
 
-### H1: de fee-bevoegdheid van een token kan de pool in een honeypot veranderen
+### H1: a token's fee authority can turn the pool into a honeypot
 
-**Wat:** het mint-beleid (`policy.rs`) staat de extensie `TransferFeeConfig` toe, maar controleert niet wie de fee mag wijzigen. Token-2022 laat de `transfer_fee_config_authority` de fee verhogen tot 100%. De nieuwe fee gaat twee epochs later in.
+**What:** the mint policy (`policy.rs`) allows the `TransferFeeConfig` extension, but does not check who may change the fee. Token-2022 lets the `transfer_fee_config_authority` raise the fee up to 100%. The new fee takes effect two epochs later.
 
-**Gevolg:** een creator lanceert met 0% fee en zet de fee na de launch op 100%. Daarna:
-- levert elke verkoop niets op: de vault ontvangt 0 tokens, dus de verkoper krijgt 0 SOL;
-- met een minimale opbrengst faalt elke verkoop;
-- kopers krijgen 0 tokens.
+**Impact:** a creator launches with a 0% fee and raises the fee to 100% after launch. After that:
+- every sell yields nothing: the vault receives 0 tokens, so the seller gets 0 SOL;
+- with a minimum output, every sell fails;
+- buyers receive 0 tokens.
 
-De ingehouden fees kan de creator als `withdraw_withheld_authority` zelf opnemen. Hetzelfde kan met een eigen **quote-mint** met fee-bevoegdheid. Dat is minder waarschijnlijk, want kopers moeten die munt eerst hebben.
+As `withdraw_withheld_authority`, the creator can collect the withheld fees. The same works with a custom **quote mint** that has a fee authority. That is less likely, because buyers must hold that coin first.
 
-**Bewijs (vóór de oplossing):** `finding_h1_a_kept_fee_authority_can_trap_sellers` in `crates/sniper-tax-tests/tests/findings.rs` (commit `34d2f3d`). Na de verhoging faalde een verkoop met minimum, en een verkoop zonder minimum nam de tokens en betaalde niets. Die test is nu omgedraaid: zo'n token wordt geweigerd.
+**Evidence (before the fix):** `finding_h1_a_kept_fee_authority_can_trap_sellers` in `crates/sniper-tax-tests/tests/findings.rs` (commit `34d2f3d`). After the increase, a sell with a minimum failed, and a sell without a minimum took the tokens and paid nothing. That test has now been flipped: such a token is refused.
 
-**Aanbevolen oplossing**, in `policy::check_launch_authorities` en de quote-check bij `launch`:
-- Een launch-token met `TransferFeeConfig` moet `transfer_fee_config_authority == None` hebben. Dan staat de fee voor altijd vast.
-- Zowel de huidige als de toekomstige fee moet onder een maximum blijven, bijvoorbeeld 500 bps.
-- Voor de quote-mint: dezelfde regel, of een allowlist (WSOL, USDC).
+**Recommended fix**, in `policy::check_launch_authorities` and the quote check at `launch`:
+- A launch token with `TransferFeeConfig` must have `transfer_fee_config_authority == None`. The fee is then fixed for good.
+- Both the current and the future fee must stay below a maximum, for example 500 bps.
+- For the quote mint: the same rule, or an allowlist (WSOL, USDC).
 
-**Oplossing (keuze van de eigenaar: optie a, ook voor de quote-mint):** `policy::check_transfer_fee`, aangeroepen in `launch` voor beide mints. Een mint met `TransferFeeConfig` wordt geweigerd als:
-- de `transfer_fee_config_authority` niet `None` is (`TransferFeeAuthorityPresent`);
-- de fee die nu geldt, of een fee die voor een later epoch gepland staat, boven 500 bps (5%) ligt (`TransferFeeAboveCap`).
+**Fix (the owner's choice: option a, for the quote mint too):** `policy::check_transfer_fee`, called in `launch` for both mints. A mint with `TransferFeeConfig` is refused if:
+- the `transfer_fee_config_authority` is not `None` (`TransferFeeAuthorityPresent`);
+- the fee in force now, or a fee scheduled for a later epoch, is above 500 bps (5%) (`TransferFeeAboveCap`).
 
-Een oude fee die niet meer geldt, blijft in de mint staan en telt niet mee. De check gebeurt bij `launch`, het laatste moment vóór de handel begint: tussen `create_market` en `launch` kan de authority de fee nog wijzigen of intrekken. Daarna staat de fee voor altijd vast.
+An old fee that no longer applies stays in the mint and does not count. The check runs at `launch`, the last moment before trading starts: between `create_market` and `launch` the authority can still change or revoke the fee. After that, the fee is fixed for good.
 
-Tests in `crates/sniper-tax-tests/tests/findings.rs`, elk voor het launch-token én de quote-mint:
-- `finding_h1_a_mint_with_a_fee_authority_is_refused`: geweigerd met fee-authority. Na het intrekken lanceert de pool, en daarna kan niemand de fee nog verhogen;
-- `finding_h1_a_transfer_fee_above_5_percent_is_refused`: 501 bps geweigerd, 500 bps toegestaan;
-- `finding_h1_the_fee_in_force_and_a_scheduled_fee_both_count`: 1% nu en 100% gepland wordt geweigerd. 10% nu en 1% gepland wordt geweigerd tot de 1% geldt, en lanceert daarna.
+Tests in `crates/sniper-tax-tests/tests/findings.rs`, each for both the launch token and the quote mint:
+- `finding_h1_a_mint_with_a_fee_authority_is_refused`: refused with a fee authority. Once the authority is revoked the pool launches, and after that nobody can raise the fee;
+- `finding_h1_a_transfer_fee_above_5_percent_is_refused`: 501 bps refused, 500 bps allowed;
+- `finding_h1_the_fee_in_force_and_a_scheduled_fee_both_count`: 1% now with 100% scheduled is refused. 10% now with 1% scheduled is refused until the 1% applies, and launches after that.
 
-### H2: een transfer hook kan verkopen blokkeren
+### H2: a transfer hook can block sells
 
-**Wat:** het beleid staat `TransferHook` toe. De hook-authority kan het hook-programma vervangen, en een hook-programma kan zelf upgradebaar of kwaadwillend zijn. Een hook die transfers naar de vault weigert, laat kopen wel toe en verkopen niet. Pipeline beschrijft dit zelf ("Restrictive transfer hooks… can be bought through Pipeline but not sold", `ROUTER.md`) en test het (`restrictive_hook_blocks_selling_unless_the_fee_account_is_whitelisted`).
+**What:** the policy allows `TransferHook`. The hook authority can replace the hook program, and a hook program can itself be upgradeable or malicious. A hook that refuses transfers into the vault allows buys but not sells. Pipeline describes this itself ("Restrictive transfer hooks… can be bought through Pipeline but not sold", `ROUTER.md`) and tests it (`restrictive_hook_blocks_selling_unless_the_fee_account_is_whitelisted`).
 
-**Gevolg:** dezelfde honeypot als bij H1, maar dan direct vanaf de launch mogelijk.
+**Impact:** the same honeypot as H1, but possible right from launch.
 
-**Aanbevolen oplossing:** kies één van:
-1. **Weiger `TransferHook` op het launch-token.** Dit is de aanbeveling voor een launchpad: kopers moeten altijd kunnen verkopen. Laat hooks alleen toe op een quote-mint uit een allowlist.
-2. Sta alleen hooks toe met hook-authority `None` en een hook-programma zonder upgrade authority. Dat is controleerbaar via de ProgramData. Een vanaf het begin kwaadwillende hook blijft dan mogelijk.
-3. Een allowlist van bekende hook-programma's in de config.
+**Recommended fix:** choose one of:
+1. **Refuse `TransferHook` on the launch token.** This is the recommendation for a launchpad: buyers must always be able to sell. Allow hooks only on a quote mint from an allowlist.
+2. Allow only hooks with hook authority `None` and a hook program without an upgrade authority. That can be checked through the ProgramData. A hook that is malicious from the start remains possible.
+3. An allowlist of known hook programs in the config.
 
-De hook-tests (`transfer_hook.rs`) blijven nuttig voor de quote-kant of voor optie 3.
+The hook tests (`transfer_hook.rs`) stay useful for the quote side or for option 3.
 
-**Oplossing (keuze van de eigenaar: optie 1, zonder allowlist voor de quote-mint):** het extensiebeleid verschilt nu per kant (`policy::MintRole`). `TransferHook` is geweigerd op het launch-token (`ForbiddenMintExtension`), al bij `create_market`, en opnieuw bij `launch`. Op de quote-mint mag een hook blijven.
+**Fix (the owner's choice: option 1, without an allowlist for the quote mint):** the extension policy now differs per side (`policy::MintRole`). `TransferHook` is refused on the launch token (`ForbiddenMintExtension`), already at `create_market`, and again at `launch`. The quote mint may keep a hook.
 
 Tests:
 - `finding_h2_a_hooked_launch_token_is_refused` in `findings.rs`;
-- `a_hooked_quote_mint_works_for_every_transfer` in `transfer_hook.rs`: alle transfers van het programma met een hook op de quote-mint (`launch`, refund, de output van een verkoop, `claim_tax` en `sweep_protocol_fees`), met exacte tellerstanden.
+- `a_hooked_quote_mint_works_for_every_transfer` in `transfer_hook.rs`: every transfer the program makes with a hook on the quote mint (`launch`, refund, the output of a sell, `claim_tax` and `sweep_protocol_fees`), with exact counter values.
 
-**Restrisico, geaccepteerd door de eigenaar:** een quote-mint met een hook kan dezelfde honeypot maken, want een hook die transfers uit de quote-vault weigert, blokkeert de opbrengst van elke verkoop. Dat vraagt een eigen quote-mint met een kwaadwillende of vervangbare hook, en kopers moeten die munt eerst hebben. De launch-UI moet een quote-mint met een hook daarom duidelijk tonen, of alleen bekende quote-mints aanbieden (WSOL, USDC).
+**Residual risk, accepted by the owner:** a quote mint with a hook can create the same honeypot, since a hook that refuses transfers out of the quote vault blocks the proceeds of every sell. That takes a custom quote mint with a malicious or replaceable hook, and buyers must hold that coin first. The launch UI should therefore show a quote mint with a hook clearly, or offer only well-known quote mints (WSOL, USDC).
 
-### M1: één wallet is upgrade authority én config-admin
+### M1: one wallet is both upgrade authority and config admin
 
-**Wat:** de upgrade authority van het programma en de config-admin zijn dezelfde wallet (`DEwdb…`).
+**What:** the program's upgrade authority and the config admin are the same wallet (`DEwdb…`).
 
-**Gevolg:** wie die key heeft, kan:
-- het programma vervangen door code die alle vaults leeghaalt, inclusief de vergrendelde liquiditeit en de onopgehaalde tax van creators;
-- de treasury omzetten.
+**Impact:** whoever holds that key can:
+- replace the program with code that drains every vault, including the locked liquidity and the creators' unclaimed tax;
+- redirect the treasury.
 
-Voor kopers en creators is dit het grootste vertrouwensrisico.
+For buyers and creators, this is the biggest trust risk.
 
-**Aanbevolen oplossing:**
-- Voor mainnet: upgrade authority en admin op een multisig (bijvoorbeeld Squads), liefst met een timelock op upgrades.
-- Bevries het programma na een externe audit, of publiceer een upgradebeleid.
-- Maak verifieerbare builds (`solana-verify`), zoals Pipeline sinds 9 november doet. Dan kan iedereen nagaan dat de binary bij de broncode hoort.
+**Recommended fix:**
+- For mainnet: put the upgrade authority and the admin on a multisig (for example Squads), preferably with a timelock on upgrades.
+- Freeze the program after an external audit, or publish an upgrade policy.
+- Make verifiable builds (`solana-verify`), as Pipeline has done since 9 November. Then anyone can check that the binary matches the source.
 
-### M2: de creator heeft door het ontwerp voordelen
+### M2: by design, the creator has advantages
 
-**Wat:** de creator koopt belastingvrij, ook tijdens het venster. Hij houdt de supply die niet in de pool zit, en kan een permanente fee tot 5% instellen.
+**What:** the creator buys tax-free, also during the window. They keep the supply that is not in the pool, and can set a permanent fee of up to 5%.
 
-**Gevolg:** een creator kan goedkoop inkopen terwijl anderen 99% tax betalen, en daarna dumpen.
+**Impact:** a creator can buy cheaply while others pay 99% tax, and dump afterwards.
 
-**Aanbevolen oplossing:** dit is een ontwerpkeuze uit het oorspronkelijke idee ("exclusief creator wallet"). Maak het zichtbaar in de launch-UI en in de metadata: het creator-adres, het deel van de supply buiten de pool, en `tax_end_bps`. Optioneel kan creator-kopen tijdens het venster worden beperkt of verboden.
+**Recommended fix:** this is a design choice from the original idea ("excluding the creator wallet"). Make it visible in the launch UI and in the metadata: the creator's address, the share of the supply outside the pool, and `tax_end_bps`. Optionally, creator buys during the window can be limited or forbidden.
 
-### L1: een verkeerde treasury of launch-fee kan alle launches laten falen
+### L1: a wrong treasury or launch fee can make every launch fail
 
-**Wat:** `launch` maakt de launch-fee met een system-transfer over naar `config.treasury`, dat een `SystemAccount` moet zijn.
+**What:** `launch` pays the launch fee with a system transfer to `config.treasury`, which must be a `SystemAccount`.
 
-**Gevolg:** twee situaties leiden ertoe dat elke `launch` faalt tot de admin het herstelt:
-- de admin zet de treasury op een account dat geen system-account is;
-- de treasury is leeg en de fee ligt onder het rent-minimum van een leeg account (0,00065 SOL op devnet op 9 november; de rent kan per cluster verschillen).
+**Impact:** two situations make every `launch` fail until the admin fixes it:
+- the admin sets the treasury to an account that is not a system account;
+- the treasury is empty and the fee is below the rent-exempt minimum of an empty account (0.00065 SOL on devnet on 9 November; rent can differ per cluster).
 
-**Aanbevolen oplossing:** `update_config` laat alleen een fee van 0 of een fee boven het rent-minimum toe. Documenteer daarnaast dat de treasury een system-account met saldo moet zijn.
+**Recommended fix:** `update_config` allows only a fee of 0 or a fee above the rent-exempt minimum. Also document that the treasury must be a system account with a balance.
 
-**Oplossing:** `update_config` en `initialize_config` weigeren een launch-fee tussen 0 en het rent-minimum van een leeg account (`LaunchFeeBelowRent`). Het programma leest de rent van de cluster zelf (`Rent::get`), dus het minimum klopt op elke cluster. Een fee van precies het minimum komt ook bij een lege treasury aan.
+**Fix:** `update_config` and `initialize_config` refuse a launch fee between 0 and the rent-exempt minimum of an empty account (`LaunchFeeBelowRent`). The program reads the cluster's rent itself (`Rent::get`), so the minimum is right on every cluster. A fee of exactly the minimum also reaches an empty treasury.
 
-Test: `finding_l1_a_launch_fee_below_rent_is_refused` in `findings.rs`. Het weigert 1 lamport en het minimum min 1; 0 en het minimum zelf gaan wel, ook naar een lege treasury, en `initialize_config` controleert hetzelfde.
+Test: `finding_l1_a_launch_fee_below_rent_is_refused` in `findings.rs`. It refuses 1 lamport and the minimum minus 1; 0 and the minimum itself are accepted, the minimum also into an empty treasury, and `initialize_config` checks the same.
 
-Blijft operationeel: de treasury moet een system-account zijn (een wallet, of de vault-PDA van een multisig). Een treasury die van een ander programma is, laat `launch` falen tot de admin hem verplaatst.
+Still operational: the treasury must be a system account (a wallet, or a multisig's vault PDA). A treasury owned by another program makes `launch` fail until the admin moves it.
 
-### L2: de config-admin gaat in één stap over
+### L2: the config admin moves in one step
 
-**Wat:** `update_config` zet een nieuwe admin direct. Een typfout of een adres dat niet kan tekenen (een PDA) zet de config voor altijd vast. De devnet-tool controleert dit al, het programma niet.
+**What:** `update_config` sets a new admin directly. A typo, or an address that cannot sign (a PDA), locks the config for good. The devnet tool already checks this; the program does not.
 
-**Aanbevolen oplossing:** overdracht in twee stappen: `propose_admin` gevolgd door `accept_admin`, getekend door de nieuwe admin.
+**Recommended fix:** a two-step transfer: `propose_admin` followed by `accept_admin`, signed by the new admin.
 
-**Oplossing:**
-- `update_config` wijzigt alleen nog de treasury en de fees (argumenten `ConfigUpdate`, zonder admin).
-- `propose_admin(new_admin)` (getekend door de admin) zet `pending_admin`. Een nieuw voorstel vervangt het vorige; `Pubkey::default()` trekt het in.
-- `accept_admin` (getekend door de voorgestelde admin) maakt die admin en wist het voorstel (`NotPendingAdmin` voor iedereen anders).
+**Fix:**
+- `update_config` now only changes the treasury and the fees (arguments `ConfigUpdate`, without an admin).
+- `propose_admin(new_admin)` (signed by the admin) sets `pending_admin`. A new proposal replaces the previous one; `Pubkey::default()` withdraws it.
+- `accept_admin` (signed by the proposed admin) makes that address the admin and clears the proposal (`NotPendingAdmin` for anyone else).
 
-`pending_admin` neemt de eerste 32 van de 64 gereserveerde bytes van de config in. De config op devnet (gereserveerde bytes allemaal 0) leest na de upgrade dus als "geen voorstel". Een multisig, zoals de vault-PDA van Squads, kan `accept_admin` via een CPI tekenen.
+`pending_admin` takes the first 32 of the config's 64 reserved bytes. The config on devnet (all reserved bytes 0) therefore reads as "no proposal" after the upgrade. A multisig, such as a Squads vault PDA, can sign `accept_admin` through a CPI.
 
-Test: `finding_l2_the_admin_moves_only_when_the_successor_accepts` in `findings.rs`. Alleen de admin stelt voor. Een voorstel voor een adres dat niemand beheert, verandert niets, en een nieuw voorstel vervangt het. Alleen de voorgestelde admin accepteert, ook de oude admin niet. Tot dan blijft de oude admin aan het roer. Een ingetrokken voorstel kan niet worden geaccepteerd. Na de overdracht is de oude admin eruit, en is het voorstel verbruikt.
+Test: `finding_l2_the_admin_moves_only_when_the_successor_accepts` in `findings.rs`. Only the admin proposes. A proposal for an address nobody controls changes nothing, and a new proposal replaces it. Only the proposed admin can accept, not even the old admin. Until then, the old admin stays in charge. A withdrawn proposal cannot be accepted. After the transfer, the old admin is out and the proposal is used up.
 
-### L3: weergave-extensies kunnen na de launch misleiden
+### L3: display extensions can mislead after launch
 
-**Wat:** `MetadataPointer`/`TokenMetadata` (naam, symbool, afbeelding), `ScaledUiAmount` en `InterestBearingConfig` zijn toegestaan. Hun authorities kunnen na de launch wijzigen wat wallets en terminals tonen. De prijsberekening raken ze niet, want die werkt met ruwe bedragen.
+**What:** `MetadataPointer`/`TokenMetadata` (name, symbol, image), `ScaledUiAmount` and `InterestBearingConfig` are allowed. Their authorities can change what wallets and terminals show after launch. They do not affect pricing, which works on raw amounts.
 
-**Aanbevolen oplossing:** vereis bij `launch` dat die authorities `None` zijn, of laat het aan de launch-UI over om ze te tonen.
+**Recommended fix:** require at `launch` that those authorities are `None`, or leave it to the launch UI to show them.
 
-### L4: de tijd op de chain kan enkele seconden afwijken
+### L4: on-chain time can be off by a few seconds
 
-De tax-curve gebruikt `Clock::unix_timestamp`, en die stellen leaders binnen grenzen vast. De curve kan dus enkele seconden verschuiven. Op een venster van 90 s of meer is dat aanvaardbaar.
+The tax curve uses `Clock::unix_timestamp`, which leaders set within bounds. The curve can therefore shift by a few seconds. With a window of 90 s or more, that is acceptable.
 
-### L5: een programma als creator
+### L5: a program as creator
 
-Als `InitParams.creator` een PDA is, kan dat programma via de router belastingvrij kopen voor anderen. Dat is de keuze van die creator; vermeld het in de UI.
+If `InitParams.creator` is a PDA, that program can buy tax-free for others through the router. That is the creator's choice; disclose it in the UI.
 
-### L6: afhankelijk van de upgradebare Pipeline-router
+### L6: depends on the upgradeable Pipeline router
 
-De creator-vrijstelling vertrouwt erop dat de router de ondertekenende trader doorgeeft. De router is upgradebaar door Pipeline. `scripts/fetch-pipeline-router.sh` pint de binary vast, en de CI stopt bij een wijziging. Op 9 november gebeurde dat (slot 520510501). De broncode was toen ongewijzigd, en alle tests slaagden tegen de nieuwe binary.
+The creator exemption relies on the router passing on the signing trader. The router can be upgraded by Pipeline. `scripts/fetch-pipeline-router.sh` pins the binary, and CI stops on a change. That happened on 9 November (slot 520510501). The source was unchanged, and every test passed against the new binary.
 
 ### I1–I4: info
 
-- **I1:** `LaunchPool::apply` gebruikt `MathOverflow` voor "een verkoop met tax", wat niet kan gebeuren. Een eigen foutcode is duidelijker.
-  **Opgelost:** de eigen foutcode `TaxedSell`. Geen test kan hem raken: de wiskunde belast nooit een verkoop (`creator_and_sells_pay_nothing` en de property-tests).
-- **I2:** de constraint `destination != quote_vault` in `ClaimTax` doet hetzelfde als Anchors eigen duplicaatcheck.
-  **Opgelost:** de constraint is weg. `the_creator_claims_their_tax_once` laat zien dat een claim naar de vault zelf nog steeds faalt, met `ConstraintDuplicateMutableAccount`.
-- **I3:** het filter `*reserve > 0` in `Pricing::settle` kan nooit triggeren. Het is de enige overgebleven mutant in de mutatietest. Bewust laten staan als verdediging.
-- **I4:** iedereen kan de pool van een creator vroeg aanmaken. Dat is onschadelijk: hij blijft Pending en alleen de creator kan lanceren. De pool legt wel de fees vast die op dat moment gelden. Die zijn begrensd, en de launch-fee is altijd de laagste van de twee.
+- **I1:** `LaunchPool::apply` uses `MathOverflow` for "a sell with tax", which cannot happen. A dedicated error code is clearer.
+  **Fixed:** a dedicated error code, `TaxedSell`. No test can reach it: the maths never taxes a sell (`creator_and_sells_pay_nothing` and the property tests).
+- **I2:** the constraint `destination != quote_vault` in `ClaimTax` does the same as Anchor's own duplicate check.
+  **Fixed:** the constraint is gone. `the_creator_claims_their_tax_once` shows that a claim to the vault itself still fails, with `ConstraintDuplicateMutableAccount`.
+- **I3:** the filter `*reserve > 0` in `Pricing::settle` can never trigger. It is the only surviving mutant in the mutation test. Deliberately kept as a defence.
+- **I4:** anyone can create a creator's pool early. That is harmless: it stays Pending and only the creator can launch it. The pool does record the fees in force at that moment. Those are capped, and the launch fee is always the lower of the two.
 
-## Gecontroleerd en in orde
+## Checked and found sound
 
-| Aanval of risico | Waarom het niet werkt | Test |
+| Attack or risk | Why it does not work | Test |
 |---|---|---|
-| De router omzeilen (en zo de fee en de tax) | `pipeline_swap` eist de market-PDA van de router als signer | `swaps_only_come_through_the_router` |
-| Zich als creator voordoen | De router zet de trader zelf, en `trade.trader` moet gelijk zijn aan account 2 | `swaps_only_come_through_the_router`, `the_creator_trades_tax_free` |
-| Onopgehaalde tax als gratis input | Input telt pas boven reserve plus opgebouwde tax, met een cap op `amount_sent` | `a_transfer_fee_quote_mint_never_spends_unclaimed_tax` (vangt de mutant) |
-| De tax ontlopen door een koop op te splitsen | De tax rondt per koop naar boven af | property-test `splitting_a_buy_never_saves_tax` |
-| Afronding in het voordeel van de trader | Output rondt naar beneden af, input bij exact-out naar boven, en k daalt nooit | property-tests en de stresstest |
-| Donaties om de prijs te bewegen | Reserves bewegen alleen met trades en `launch` | `donations_do_not_move_the_price` en de stresstest |
-| De pool leegkopen | De output blijft altijd kleiner dan de reserve | `the_pool_can_never_be_emptied` |
-| Vaults vooraf aanmaken (blokkeren) | `init_if_needed` met volledige ATA-constraints | `vaults_created_in_advance_do_not_block_a_pool` |
-| De pool van de creator vooraf aanmaken | Het adres bevat de creator en het schema; alleen de creator lanceert | `creating_the_creators_pool_first_gains_nothing` |
-| `register_existing_market` op een ander account | De `Account`-discriminator wordt gecontroleerd | `register_existing_market_rejects_accounts_that_are_not_pools` |
-| Andermans tax claimen, of de dev-fee elders heen sturen | `has_one = creator`; de sweep gaat alleen naar de ATA van de treasury | `the_creator_claims_their_tax_once`, `protocol_tax_is_swept_only_to_the_treasury` |
-| Fees verhogen voor bestaande pools | Vastgelegd per pool, harde maxima, launch-fee is het minimum | `the_config_is_capped_and_changes_reach_new_pools_only` |
-| Gevaarlijke mints (permanent delegate, freeze, mint) | Beleid bij aanmaken en bij launch | `a_permanent_delegate_mint_is_refused`, `launch_requires_revoked_mint_and_freeze_authorities` |
-| Een fee die na de launch omhoog kan, of boven 5% ligt (H1) | Fee-authority `None` en fee hooguit 5%, nu en gepland, op beide mints | `findings.rs` |
-| Een hook op het launch-token (H2) | Geweigerd bij aanmaken en bij launch | `finding_h2_a_hooked_launch_token_is_refused` |
-| De config-admin naar een verkeerd adres (L2) | Overdracht in twee stappen | `finding_l2_the_admin_moves_only_when_the_successor_accepts` |
-| Hook-accounts die niet doorkomen | Een eigen `transfer_checked`-helper | `transfer_hook.rs`, op de quote-mint (vangt de mutant) |
-| Reentrancy via een hook | Solana staat niet toe dat een programma dat al op de stack staat opnieuw wordt aangeroepen | — |
-| Overflow | u128-tussenwaarden, `checked_*`, `overflow-checks = true` | `a_supply_near_the_u64_limit_trades_without_overflow`, `quotes_never_panic` |
+| Bypassing the router (and with it the fee and the tax) | `pipeline_swap` requires the router's market PDA as signer | `swaps_only_come_through_the_router` |
+| Posing as the creator | The router sets the trader itself, and `trade.trader` must equal account 2 | `swaps_only_come_through_the_router`, `the_creator_trades_tax_free` |
+| Unclaimed tax as free input | Input counts only above the reserve plus accrued tax, capped at `amount_sent` | `a_transfer_fee_quote_mint_never_spends_unclaimed_tax` (catches the mutant) |
+| Avoiding tax by splitting a buy | The tax rounds up per buy | property test `splitting_a_buy_never_saves_tax` |
+| Rounding in the trader's favour | Output rounds down, exact-out input rounds up, and k never falls | property tests and the stress test |
+| Donations to move the price | Reserves move only with trades and `launch` | `donations_do_not_move_the_price` and the stress test |
+| Buying the pool empty | Output always stays below the reserve | `the_pool_can_never_be_emptied` |
+| Creating the vaults in advance (to block) | `init_if_needed` with full ATA constraints | `vaults_created_in_advance_do_not_block_a_pool` |
+| Creating the creator's pool in advance | The address includes the creator and the schedule; only the creator launches | `creating_the_creators_pool_first_gains_nothing` |
+| `register_existing_market` on another account | The `Account` discriminator is checked | `register_existing_market_rejects_accounts_that_are_not_pools` |
+| Claiming someone else's tax, or sending the dev fee elsewhere | `has_one = creator`; the sweep goes only to the treasury's ATA | `the_creator_claims_their_tax_once`, `protocol_tax_is_swept_only_to_the_treasury` |
+| Raising fees for existing pools | Recorded per pool, hard caps, the launch fee is the minimum | `the_config_is_capped_and_changes_reach_new_pools_only` |
+| Dangerous mints (permanent delegate, freeze, mint) | Policy at creation and at launch | `a_permanent_delegate_mint_is_refused`, `launch_requires_revoked_mint_and_freeze_authorities` |
+| A fee that can rise after launch, or is above 5% (H1) | Fee authority `None` and a fee of at most 5%, now and scheduled, on both mints | `findings.rs` |
+| A hook on the launch token (H2) | Refused at creation and at launch | `finding_h2_a_hooked_launch_token_is_refused` |
+| The config admin moving to a wrong address (L2) | Two-step transfer | `finding_l2_the_admin_moves_only_when_the_successor_accepts` |
+| Hook accounts that don't get through | A custom `transfer_checked` helper | `transfer_hook.rs`, on the quote mint (catches the mutant) |
+| Reentrancy through a hook | Solana does not let a program that is already on the stack be called again | — |
+| Overflow | u128 intermediates, `checked_*`, `overflow-checks = true` | `a_supply_near_the_u64_limit_trades_without_overflow`, `quotes_never_panic` |
 
-## Aanbevolen volgorde
+## Recommended order
 
-1. **Vóór mainnet, in het programma: gedaan** (10 november 2026, sha256 `9f24dafa0168585de8e15a519a178ed14e6e2bb7d3f8443862eff1db6379f7cd`):
-   - H1: fee-authority `None` en een fee-maximum van 5%, op beide mints;
-   - H2: hooks op het launch-token geweigerd;
-   - L1 en L2, en de info-punten I1–I2.
+1. **Before mainnet, in the program: done** (10 November 2026, sha256 `9f24dafa0168585de8e15a519a178ed14e6e2bb7d3f8443862eff1db6379f7cd`):
+   - H1: fee authority `None` and a fee cap of 5%, on both mints;
+   - H2: hooks on the launch token refused;
+   - L1 and L2, and the info points I1–I2.
 
-   Dit veranderde de binary. Upgraden op devnet kan alleen de eigenaar, met zijn eigen wallet; de opdracht staat in `HANDOFF.md`.
-2. **Vóór mainnet, operationeel:**
-   - M1: multisig, timelock of bevriezen, en een verifieerbare build;
-   - M2: transparantie in de UI;
-   - L3: weergave-authorities tonen of eisen;
-   - het restrisico van H2: hooks op de quote-mint tonen, of alleen bekende quote-mints aanbieden.
-3. **Daarna:** een externe audit van de definitieve versie.
+   This changed the binary. Only the owner can upgrade it on devnet, with their own wallet; the commands are in `HANDOFF.md`.
+2. **Before mainnet, operational:**
+   - M1: a multisig, a timelock or freezing, and a verifiable build;
+   - M2: transparency in the UI;
+   - L3: show or require the display authorities;
+   - the residual risk of H2: show hooks on the quote mint, or offer only well-known quote mints.
+3. **After that:** an external audit of the final version.

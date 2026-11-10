@@ -1,82 +1,87 @@
 # Pipeline Sniper Tax
 
-Een strategy voor de [Pipeline](https://github.com/MetalLegBob/pipeline)-router op Solana: een
-launch-pool die snipers belast. Een koop direct na de launch betaalt 99% tax, en die tax zakt in
-een instelbare periode (bijvoorbeeld 1,5 of 10 minuten) naar 0%. De creator-wallet is vrijgesteld.
-Werkt met SPL Token en Token-2022. Om kopers te beschermen weigert een pool een launch-token
-met een mint- of freeze-authority of een transfer hook, en een transfer fee die nog kan
-veranderen of boven 5% ligt.
+A strategy for the [Pipeline](https://github.com/MetalLegBob/pipeline) router on Solana: a
+launch pool that taxes snipers. A buy right after launch pays 99% tax, and that tax falls to 0%
+over a configurable window (for example 1.5 or 10 minutes). The creator's wallet is exempt.
+Works with SPL Token and Token-2022. To protect buyers, a pool refuses a launch token with a
+mint or freeze authority or a transfer hook, and a transfer fee that can still change or is
+above 5%.
 
-> **Status:** in ontwikkeling, live op devnet. Het ontwerp staat in [`docs/PLAN.md`](docs/PLAN.md),
-> de zelf-review en de oplossingen in [`docs/SECURITY-REVIEW.md`](docs/SECURITY-REVIEW.md).
+> **Status:** in development, live on devnet. The design is in [`docs/PLAN.md`](docs/PLAN.md),
+> the self-review and its fixes in [`docs/SECURITY-REVIEW.md`](docs/SECURITY-REVIEW.md).
 
 ## Repository
 
-| Pad | Inhoud |
+| Path | Contents |
 |---|---|
-| `docs/SECURITY-REVIEW.md` | Zelf-review: bevindingen, bewijs en aanbevolen oplossingen |
-| `docs/PLAN.md` | Ontwerp, account-validatie, dreigingsmodel, testplan en fasering |
-| `crates/sniper-tax-math` | Pure wiskunde: tax-curve, tax-verdeling en constant-product-prijzen, met property-tests |
-| `programs/sniper-tax` | Het Anchor-programma: de Pipeline-strategy |
-| `crates/sniper-tax-client` | Adressen, account-types en instructie-builders, voor launchers, scripts en integrators |
-| `crates/sniper-tax-tests` | Integratietests tegen de echte Pipeline-router van devnet |
-| `test-programs/test-hook` | Test-transfer-hook voor de integratietests |
-| `crates/sniper-tax-devnet` | Registratie, config en een demo-launch op devnet |
-| `metadata/sniper-tax.devnet.json` | Strategy-metadata voor Pipeline-terminals (devnet) |
+| `docs/SECURITY-REVIEW.md` | Self-review: findings, evidence, fixes and their tests |
+| `docs/PLAN.md` | Design, account validation, threat model, test plan and phases |
+| `docs/HANDOFF.md` | Current state, commands, pitfalls and devnet details, for the next session |
+| `crates/sniper-tax-math` | Pure maths: the tax curve, the tax split and constant-product pricing, with property tests |
+| `programs/sniper-tax` | The Anchor program: the Pipeline strategy |
+| `crates/sniper-tax-client` | Addresses, account types and instruction builders, for launchers, scripts and integrators |
+| `crates/sniper-tax-tests` | Integration tests against the real Pipeline router from devnet |
+| `test-programs/test-hook` | Test transfer hook for the integration tests |
+| `crates/sniper-tax-devnet` | Registration, config and a demo launch on devnet |
+| `metadata/sniper-tax.devnet.json` | Strategy metadata for Pipeline terminals (devnet) |
 
-## Bouwen en testen
+## Build and test
 
-De Rust-versie in `rust-toolchain.toml` wordt automatisch gekozen.
+The Rust version in `rust-toolchain.toml` is picked automatically.
 
-Je hebt `cargo-build-sbf` 4.6.0 nodig (`cargo install cargo-build-sbf --version 4.6.0 --locked`).
+You need `cargo-build-sbf` 4.6.0 (`cargo install cargo-build-sbf --version 4.6.0 --locked`).
 
 ```sh
-(cd programs && cargo build-sbf)       # het programma, naar programs/target/deploy
-(cd test-programs && cargo build-sbf)  # de test-hook, naar test-programs/target/deploy
-scripts/fetch-pipeline-router.sh       # de router die live op devnet draait, naar fixtures/
-cargo test --workspace                 # wiskunde-, property- en integratietests
+(cd programs && cargo build-sbf)       # the program, into programs/target/deploy
+(cd test-programs && cargo build-sbf)  # the test hook, into test-programs/target/deploy
+scripts/fetch-pipeline-router.sh       # the router live on devnet, into fixtures/
+cargo test --workspace                 # maths, property and integration tests
 ```
 
 ## Devnet
 
-Live op devnet, geregistreerd bij de Pipeline-router:
+Live on devnet, registered with the Pipeline router:
 
-| | Adres |
+| | Address |
 |---|---|
-| Programma | [`EZwLuZ8mSiBoeKtbHwQK4kxCqqj4JuureT1kHpTK3i6b`](https://explorer.solana.com/address/EZwLuZ8mSiBoeKtbHwQK4kxCqqj4JuureT1kHpTK3i6b?cluster=devnet) |
-| Demo-pool (90 s tax-venster) | [`GeajhDYc24MyRecNv1a69nSsa2kdUtwbhLec6xpqVG3B`](https://explorer.solana.com/address/GeajhDYc24MyRecNv1a69nSsa2kdUtwbhLec6xpqVG3B?cluster=devnet) |
-| Upgrade authority, config-admin en treasury | `DEwdbWGmGf6vdtRMkBXez2zJ71JbAaJ1DdD1s3bN8tYn` |
+| Program | [`EZwLuZ8mSiBoeKtbHwQK4kxCqqj4JuureT1kHpTK3i6b`](https://explorer.solana.com/address/EZwLuZ8mSiBoeKtbHwQK4kxCqqj4JuureT1kHpTK3i6b?cluster=devnet) |
+| Demo pool (90 s tax window) | [`GeajhDYc24MyRecNv1a69nSsa2kdUtwbhLec6xpqVG3B`](https://explorer.solana.com/address/GeajhDYc24MyRecNv1a69nSsa2kdUtwbhLec6xpqVG3B?cluster=devnet) |
+| Upgrade authority, config admin and treasury | `DEwdbWGmGf6vdtRMkBXez2zJ71JbAaJ1DdD1s3bN8tYn` |
 
-In de demo betaalde een sniper die ongeveer 5 seconden na de launch kocht 93,5% tax. Een koop na het
-venster betaalde niets. Van de tax ging 90% naar de creator en 10% naar de treasury.
+In the demo, a sniper who bought about 5 seconds after launch paid 93.5% tax. A buy after the
+window paid nothing. Of the tax, 90% went to the creator and 10% to the treasury.
 
-Zelf deployen:
+Upgrading the existing devnet program is described in [`docs/HANDOFF.md`](docs/HANDOFF.md)
+(section "Devnet").
 
-Je hebt de Solana CLI 4.4 nodig en een wallet met ongeveer 6 devnet-SOL (via
-[faucet.solana.com](https://faucet.solana.com)). Het programma-adres in `declare_id!` hoort bij
-de keypair in `programs/target/deploy/`. Wie zelf deployt, maakt een eigen keypair en past het
-adres aan in `programs/sniper-tax/src/lib.rs`, `crates/sniper-tax-client/src/lib.rs` en de metadata.
+Deploying your own:
+
+You need the Solana CLI 4.4 and a wallet with about 6 devnet SOL (from
+[faucet.solana.com](https://faucet.solana.com)). The program address in `declare_id!` belongs to
+the keypair in `programs/target/deploy/`. To deploy your own copy, create your own keypair and
+change the address in `programs/sniper-tax/src/lib.rs`, `crates/sniper-tax-client/src/lib.rs` and
+the metadata.
 
 ```sh
 solana program deploy programs/target/deploy/sniper_tax.so \
   --program-id programs/target/deploy/sniper_tax-keypair.json --keypair <wallet> --url devnet
-KEYPAIR=<wallet> TREASURY=<adres> cargo run -p sniper-tax-devnet -- setup
+KEYPAIR=<wallet> TREASURY=<address> cargo run -p sniper-tax-devnet -- setup
 KEYPAIR=<wallet> cargo run -p sniper-tax-devnet -- demo --wait
 ```
 
-`setup` registreert het programma bij de Pipeline-router en maakt de config aan. `config`
-(getekend door de huidige admin) verplaatst de treasury (`TREASURY`) en stelt met `ADMIN` een
-nieuwe admin voor; die neemt het beheer over met `accept-admin`. `demo` maakt
-een testtoken, lanceert een pool in één transactie, laat een sniper direct na de launch kopen,
-koopt opnieuw na het venster (met `--wait`) en claimt en sweept de tax.
+`setup` registers the program with the Pipeline router and creates the config. `config` (signed
+by the current admin) moves the treasury (`TREASURY`) and, with `ADMIN`, proposes a new admin, who
+takes over with `accept-admin`. `demo` creates a test token, launches a pool in one transaction,
+has a sniper buy right after launch, buys again after the window (with `--wait`), and claims and
+sweeps the tax.
 
-Keypairs worden nooit gecommit: `scripts/check-no-keypairs.sh` en de pre-commit-hook
-(`git config core.hooksPath .githooks`) controleren dat.
+Keypairs are never committed: `scripts/check-no-keypairs.sh` and the pre-commit hook
+(`git config core.hooksPath .githooks`) check for them.
 
-## Licentie
+## License
 
-Apache-2.0, zie [`LICENSE`](LICENSE). Copyright 2026 MajocoReborn.
+Apache-2.0, see [`LICENSE`](LICENSE). Copyright 2026 MajocoReborn.
 
-Delen van de testharness, de opbouw van de Pipeline-instructies in het programma en het
-keypair-checkscript zijn aangepast van [Pipeline](https://github.com/MetalLegBob/pipeline)
-(Apache-2.0). De bestanden zelf vermelden waar.
+Parts of the test harness, the way the program builds Pipeline instructions, and the keypair
+check script are adapted from [Pipeline](https://github.com/MetalLegBob/pipeline) (Apache-2.0).
+The files themselves say where.
