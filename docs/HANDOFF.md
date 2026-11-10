@@ -40,6 +40,8 @@ the same day (slot 520838510); see "Devnet".
 | `scripts/fetch-pipeline-router.sh` | Fetches the router binary from devnet, pinned by sha256, into `fixtures/pipeline.so` |
 | `docs/PLAN.md` | Design, account validation, threat model, decisions, progress |
 | `docs/SECURITY-REVIEW.md` | Self-review: findings, fixes and their tests |
+| `docs/LAUNCH-SITE.md` | Plan for the launch website (approved), with its progress |
+| `app/` | The launch site (Node 20.19 or later). So far `src/client`, the TypeScript client, and `src/vendor/pipeline`, Pipeline's SDK, vendored unmodified (`VENDORED.md`). `test/vectors.json` comes from the Rust client |
 
 ## Build and test
 
@@ -52,6 +54,8 @@ cargo test --workspace                                   # all tests, ~30 s
 cargo clippy --workspace --all-targets -- -D warnings
 (cd programs && cargo clippy --all-targets -- -D warnings)
 cargo fmt --all -- --check && (cd programs && cargo fmt --all -- --check)
+(cd app && npm ci && npm test)                           # typecheck, prettier, vitest
+(cd app && npm run vectors)                              # after changing the Rust client
 ```
 
 Extra:
@@ -76,6 +80,7 @@ cargo mutants -p sniper-tax-math
 | `transfer_hook` | 1 test, with the hook on the quote mint. Every path in which the program makes transfers: `launch`, refund, the output of a sell, `claim_tax` and `sweep_protocol_fees`. With exact counter values; without the hook accounts they fail cleanly |
 | Long stress run | 43,139 trades, 12,814 of them taxed buys, without a single broken invariant |
 | Mutation test | 78 of 79 mutants caught (84 found, 5 unviable). Because of the one survivor, `cargo mutants` exits with code 2 |
+| `app` (`npm test`) | 21 tests: the TypeScript client against the Rust client's vectors |
 
 The one surviving mutant is equivalent to the original code: the filter `*reserve > 0` in `Pricing::settle` can never trigger, because `check_liquidity` and the formulas already rule that case out.
 
@@ -99,6 +104,7 @@ The one surviving mutant is equivalent to the original code: the filter `*reserv
 11. **`update_config` has new arguments** (`ConfigUpdate`: treasury, tax share, launch fee; no admin any more). The old and new versions therefore don't fit together. After the upgrade, don't use an old build of the devnet tool; and use the new tool's `config` or `accept-admin` only after the upgrade: the old program doesn't know `propose_admin` and `accept_admin`, and refuses the new arguments of `update_config`.
 12. **The metadata names the treasury as a fixed address** (`metadata/sniper-tax.devnet.json`, for `launch` and `sweep_protocol_fees`). If the admin moves the treasury, update the metadata too. Otherwise `launch` from a terminal fails with `WrongTreasury`. On 10 November it went from the old treasury `HcQgs…` to `DEwdb…`, and then to the devnet wallet `CUiq3QQ…`.
 13. **The Solana CLI needs a keypair file** (a JSON array of 64 bytes). A wallet that exists only as a private key, or only in a wallet app, must first be turned into one, locally: from the seed phrase with `solana-keygen recover 'prompt://?key=0/0'`, or from the private key through a hidden prompt. Never paste a key or seed phrase into a chat. The 12 words the CLI prints during a deploy belong to the temporary buffer account, not to the wallet.
+14. **The TypeScript client mirrors the Rust client.** After changing `crates/sniper-tax-client` or a layout in the program, regenerate `app/test/vectors.json` (`cd app && npm run vectors`) and make the TypeScript match. CI regenerates the vectors and fails if the committed file differs.
 
 ## Devnet
 
@@ -227,7 +233,7 @@ In addition, the unchanged source (commit `8bb831b`) built exactly `222ee769…`
 
 ## Open items
 
-1. **Launch site:** the plan is in [`LAUNCH-SITE.md`](LAUNCH-SITE.md), awaiting the owner's decisions (S1–S7) before any code.
+1. **Launch site:** the plan in [`LAUNCH-SITE.md`](LAUNCH-SITE.md) is approved (the name and domain come later). Milestone 1, the TypeScript client, is done; next is milestone 2, the launch flow on devnet.
 2. **Optional:** run `demo` on devnet (about 0.2 SOL) to see a full launch on the new version.
 3. **Phase 6:** the self-review is in [`SECURITY-REVIEW.md`](SECURITY-REVIEW.md). H1, H2, L1, L2, I1 and I2 are fixed. Still open: M1 and M2 (operational), L3 (display extensions) and the residual risk of a hook on the quote mint. After that, an external audit.
 4. **Before mainnet:**

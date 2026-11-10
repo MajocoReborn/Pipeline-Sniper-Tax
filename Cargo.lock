@@ -2363,6 +2363,7 @@ dependencies = [
  "borsh",
  "pipeline-client",
  "pipeline-strategy-interface",
+ "serde_json",
  "sniper-tax-math",
 ]
 

@@ -25,6 +25,7 @@ above 5%.
 | `test-programs/test-hook` | Test transfer hook for the integration tests |
 | `crates/sniper-tax-devnet` | Registration, config and a demo launch on devnet |
 | `metadata/sniper-tax.devnet.json` | Strategy metadata for Pipeline terminals (devnet) |
+| `app/` | The launch site, in progress: so far its TypeScript client, tested against the Rust client |
 
 ## Build and test
 
@@ -37,6 +38,7 @@ You need `cargo-build-sbf` 4.6.0 (`cargo install cargo-build-sbf --version 4.6.0
 (cd test-programs && cargo build-sbf)  # the test hook, into test-programs/target/deploy
 scripts/fetch-pipeline-router.sh       # the router live on devnet, into fixtures/
 cargo test --workspace                 # maths, property and integration tests
+(cd app && npm ci && npm test)         # the TypeScript client (Node 20.19 or later)
 ```
 
 ## Devnet

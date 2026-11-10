@@ -1,6 +1,6 @@
 # Launch site: plan
 
-> Status: **plan, for the owner's approval.** No code yet. Devnet first.
+> Status: **approved on 10 November 2026** (decisions in section 8; the name and domain come later). Devnet first. Progress is in section 7.
 
 ## 1. Goal
 
@@ -101,17 +101,29 @@ The site builds transactions that move users' money, so:
 | 4 | Creator dashboard: claim | A creator claims their tax from the site |
 | 5 | Polish, a security review (Security-Agent), deploy to a public devnet URL | The site is reachable and reviewed |
 
-## 8. Decisions for the owner
+### Progress
 
-| # | Question | Recommendation |
+- **Milestone 1, done (10 November):** `app/src/client`, the TypeScript client on `@solana/kit`:
+  - the config and pool addresses, `PoolKeys` and the creator's token accounts;
+  - decoders for `LaunchPool` and `ProtocolConfig`;
+  - builders for `create_market`, the fee accounts, `launch`, `claim_tax`, `sweep_protocol_fees`, `pipeline_quote` and router swaps;
+  - the tax schedule (`taxBpsAt`, `applicableTaxBps`, `currentTaxBps`), with the program's integer maths.
+
+  Pipeline's SDK is vendored unmodified in `app/src/vendor/pipeline` (`VENDORED.md`). `crates/sniper-tax-client/examples/ts_vectors.rs` writes `app/test/vectors.json`: addresses, instruction bytes and flags, encoded accounts, and 324 tax rates. The 21 tests in `app/test/client.test.ts` match all of it, and CI fails if the vectors are stale. Of nine deliberate bugs in the client, the tests catch seven; the other two (`<= 0` as `< 0`, and `>= duration` as `> duration` in the tax curve) give the same rate at those points for every schedule the program accepts.
+
+## 8. Decisions
+
+The owner took every recommendation on 10 November 2026; the name and domain come later.
+
+| # | Question | Decision |
 |---|---|---|
-| S1 | Where does the site live? | `app/` in this repo (shared CI and test vectors); a separate repo is also possible |
+| S1 | Where does the site live? | `app/` in this repo (shared CI and test vectors) |
 | S2 | Framework | Vite + React + TypeScript (static, simple to host) |
 | S3 | Token images | MVP: the creator pastes an image URL. Later: upload to IPFS or Arweave through a pinning service, which needs a small server for its key |
-| S4 | Token standard | Token-2022 with built-in metadata (no Metaplex dependency, metadata frozen at launch) |
-| S5 | Site fee per trade | Decide before mainnet; 0% on devnet. A typical front-end fee is 0.5–1% |
-| S6 | Creator's share outside the pool | Default 0%, allowed up to e.g. 20%, always shown |
-| S7 | Name and domain | Owner's choice |
+| S4 | Token standard | Token-2022 with built-in metadata (no Metaplex dependency, metadata frozen at launch). Measured through the router: a swap costs 37,500–39,300 compute units against 35,100–35,200 for SPL Token, a few lamports at any priority fee |
+| S5 | Site fee per trade | 0% on devnet; decide before mainnet. A typical front-end fee is 0.5–1% |
+| S6 | Creator's share outside the pool | Default 0%, at most 20%, always shown |
+| S7 | Name and domain | Later |
 | S8 | Is the sniper tax always on, or optional? | **Decided (10 November): always on**, with an adjustable strength (the presets in 3.1). Every launch on the site protects buyers, and the protocol earns on every tax. Making it optional later is a small site change, since the program accepts 0% |
 
 ## 9. Out of scope for now
