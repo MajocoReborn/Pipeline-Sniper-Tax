@@ -46,7 +46,7 @@ Live on devnet, registered with the Pipeline router:
 |---|---|
 | Program | [`EZwLuZ8mSiBoeKtbHwQK4kxCqqj4JuureT1kHpTK3i6b`](https://explorer.solana.com/address/EZwLuZ8mSiBoeKtbHwQK4kxCqqj4JuureT1kHpTK3i6b?cluster=devnet) |
 | Demo pool (90 s tax window) | [`GeajhDYc24MyRecNv1a69nSsa2kdUtwbhLec6xpqVG3B`](https://explorer.solana.com/address/GeajhDYc24MyRecNv1a69nSsa2kdUtwbhLec6xpqVG3B?cluster=devnet) |
-| Upgrade authority, config admin and treasury | `DEwdbWGmGf6vdtRMkBXez2zJ71JbAaJ1DdD1s3bN8tYn` |
+| Upgrade authority, config admin and treasury | `CUiq3QQbXMsrgCpiN423zr2NTrdfPRuGUy9EQKQ6CGap` (a wallet only for devnet) |
 
 In the demo, a sniper who bought about 5 seconds after launch paid 93.5% tax. A buy after the
 window paid nothing. Of the tax, 90% went to the creator and 10% to the treasury.

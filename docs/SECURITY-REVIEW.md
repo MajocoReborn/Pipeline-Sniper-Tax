@@ -84,7 +84,7 @@ Tests:
 
 ### M1: one wallet is both upgrade authority and config admin
 
-**What:** the program's upgrade authority and the config admin are the same wallet (`DEwdb…`).
+**What:** the program's upgrade authority and the config admin are the same wallet. On devnet that is `CUiq3QQ…`, a wallet only for devnet since 10 November; before that it was `DEwdb…`.
 
 **Impact:** whoever holds that key can:
 - replace the program with code that drains every vault, including the locked liquidity and the creators' unclaimed tax;

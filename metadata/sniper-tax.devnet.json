@@ -45,7 +45,7 @@
         { "name": "token_program_token", "source": "token_program:0" },
         { "name": "token_program_quote", "source": "token_program:1" },
         { "name": "config", "source": "pda:EZwLuZ8mSiBoeKtbHwQK4kxCqqj4JuureT1kHpTK3i6b:str:config" },
-        { "name": "treasury", "source": "fixed:DEwdbWGmGf6vdtRMkBXez2zJ71JbAaJ1DdD1s3bN8tYn", "writable": true },
+        { "name": "treasury", "source": "fixed:CUiq3QQbXMsrgCpiN423zr2NTrdfPRuGUy9EQKQ6CGap", "writable": true },
         { "name": "system_program", "source": "system_program" }
       ]
     },
@@ -73,8 +73,8 @@
         { "name": "config", "source": "pda:EZwLuZ8mSiBoeKtbHwQK4kxCqqj4JuureT1kHpTK3i6b:str:config" },
         { "name": "quote_mint", "source": "mint:1" },
         { "name": "quote_vault", "source": "vault:1", "writable": true },
-        { "name": "treasury", "source": "fixed:DEwdbWGmGf6vdtRMkBXez2zJ71JbAaJ1DdD1s3bN8tYn" },
-        { "name": "treasury_quote", "source": "pda:ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL:key:fixed:DEwdbWGmGf6vdtRMkBXez2zJ71JbAaJ1DdD1s3bN8tYn,key:token_program:1,key:mint:1", "writable": true },
+        { "name": "treasury", "source": "fixed:CUiq3QQbXMsrgCpiN423zr2NTrdfPRuGUy9EQKQ6CGap" },
+        { "name": "treasury_quote", "source": "pda:ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL:key:fixed:CUiq3QQbXMsrgCpiN423zr2NTrdfPRuGUy9EQKQ6CGap,key:token_program:1,key:mint:1", "writable": true },
         { "name": "token_program_quote", "source": "token_program:1" }
       ]
     }

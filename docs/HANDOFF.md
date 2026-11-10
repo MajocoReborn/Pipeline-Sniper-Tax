@@ -93,7 +93,7 @@ The one surviving mutant is equivalent to the original code: the filter `*reserv
 9. **The test hook program has its own workspace** (`test-programs/`). In the `programs/` workspace it changes the shared lockfile, and with it the binary of the real program.
 10. **New error codes go at the end only.** Anchor numbers error codes in order (6000, 6001, …). New codes therefore come after the existing ones in `errors.rs`, so clients keep the old numbers.
 11. **`update_config` has new arguments** (`ConfigUpdate`: treasury, tax share, launch fee; no admin any more). The old and new versions therefore don't fit together. After the upgrade, don't use an old build of the devnet tool; and use the new tool's `config` or `accept-admin` only after the upgrade: the old program doesn't know `propose_admin` and `accept_admin`, and refuses the new arguments of `update_config`.
-12. **The metadata names the treasury as a fixed address** (`metadata/sniper-tax.devnet.json`, for `launch` and `sweep_protocol_fees`). If the admin moves the treasury, update the metadata too. Otherwise `launch` from a terminal fails with `WrongTreasury`. Until 10 November it still named the old treasury `HcQgs…`.
+12. **The metadata names the treasury as a fixed address** (`metadata/sniper-tax.devnet.json`, for `launch` and `sweep_protocol_fees`). If the admin moves the treasury, update the metadata too. Otherwise `launch` from a terminal fails with `WrongTreasury`. On 10 November it went from the old treasury `HcQgs…` to `DEwdb…`, and then to the devnet wallet `CUiq3QQ…`.
 13. **The Solana CLI needs a keypair file** (a JSON array of 64 bytes). A wallet that exists only as a private key, or only in a wallet app, must first be turned into one, locally: from the seed phrase with `solana-keygen recover 'prompt://?key=0/0'`, or from the private key through a hidden prompt. Never paste a key or seed phrase into a chat. The 12 words the CLI prints during a deploy belong to the temporary buffer account, not to the wallet.
 
 ## Devnet
@@ -101,12 +101,12 @@ The one surviving mutant is equivalent to the original code: the filter `*reserv
 | | |
 |---|---|
 | Program | `EZwLuZ8mSiBoeKtbHwQK4kxCqqj4JuureT1kHpTK3i6b` (registered with the Pipeline router) |
-| Upgrade authority, config admin and treasury | `DEwdbWGmGf6vdtRMkBXez2zJ71JbAaJ1DdD1s3bN8tYn` (the owner's wallet; 7.42 devnet SOL after the upgrade) |
+| Upgrade authority, config admin and treasury | `CUiq3QQbXMsrgCpiN423zr2NTrdfPRuGUy9EQKQ6CGap`: a wallet only for devnet, created locally by the owner (7.0 devnet SOL on 10 November). Until 10 November all three were on the owner's general wallet `DEwdb…N8tYn`, which now has no role here |
 | Version on devnet | sha256 `9f24dafa0168585de8e15a519a178ed14e6e2bb7d3f8443862eff1db6379f7cd`, upgraded on 10 November 2026 at slot 520838510 (signature `3QJQDcHTB1dmS3YDvwz1KPPQ83eZi9yuzxigk8Ymw8pfWWzmpmN1seVdd7FfnhEDCpojaT5S4cCAQSYbeMURW2Vc`). Before that: `222ee769…` (slot 520494490) |
 | Config | `6wCct5q2tQ2WGfbtLcEzaH756aGnkMuSnnexaHmquL93`: 10% tax share, 0.01 SOL launch fee. `pending_admin` is empty (checked after the upgrade) |
 | Demo pool | `GeajhDYc24MyRecNv1a69nSsa2kdUtwbhLec6xpqVG3B` |
 
-**Deploying a new version.** Upgrading at the same address needs the owner's wallet, and that key is never in a cloud session. The owner therefore does the upgrade locally (choice 4a). On Windows, use WSL.
+**Deploying a new version.** Upgrading at the same address needs the devnet wallet `CUiq3QQ…`, and that key is never in a cloud session. The owner therefore does the upgrade locally (choice 4a). On Windows, use WSL.
 
 1. Tools, once:
 
@@ -114,7 +114,7 @@ The one surviving mutant is equivalent to the original code: the filter `*reserv
    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh   # Rust; the repo picks its version
    sh -c "$(curl -sSfL https://release.anza.xyz/stable/install)"    # Solana CLI; then open a new terminal
    cargo install cargo-build-sbf --version 4.6.0 --locked
-   solana-keygen pubkey <path-to-wallet.json>                       # must print DEwdb…N8tYn
+   solana-keygen pubkey <path-to-wallet.json>                       # must print CUiq3QQ…6CGap
    ```
 2. Build, from the repo on the branch of PR #1:
 
@@ -153,6 +153,15 @@ The one surviving mutant is equivalent to the original code: the filter `*reserv
 After the upgrade nothing else is needed on-chain: the pool and config layouts are unchanged, and existing pools keep working.
 
 **The upgrade of 10 November.** The owner deployed the binary built and tested in the cloud session, after checking its sha256 locally, so no local build was needed (for mainnet: build it yourself, or use a verifiable build). The CLI extended the ProgramData account by itself, to exactly 375,568 bytes, and closed the buffer; it cost about 0.067 SOL. Checked afterwards from the cloud session: the on-chain hash matches, the transaction is finalized, the config is intact, and a simulated `pipeline_quote` on the demo pool succeeds (3,775 compute units) with exactly the constant-product output, since its tax window is long over. A new session can also deploy the program to a new address; then change the three places from pitfall 2.
+
+**Moving control to the devnet wallet (10 November).** All three roles moved from `DEwdb…` to `CUiq3QQ…`, checked on-chain afterwards:
+
+- 7 devnet SOL with `solana transfer`;
+- the upgrade authority with `solana program set-upgrade-authority … --new-upgrade-authority <new-keypair.json>`, so the new wallet co-signs and a typo is impossible;
+- the treasury and an admin proposal with the devnet tool's `config` (signature `4Fiix5BY…`);
+- the admin with `accept-admin`, signed by the new wallet (signature `3dXCrc3e…`).
+
+The new wallet was derived with Phantom's path (`solana-keygen recover 'prompt://?key=0/0'`), so its seed phrase gives the same address in a wallet app. `solana-keygen new` derives without a path, which gives a different address from the same words.
 
 **Administration.** `config` moves the treasury (keeping the fees) and, with `ADMIN`, proposes a new admin. The new admin takes over with `accept-admin`, with their own wallet as `KEYPAIR`. Until then, the current admin stays in charge. The metadata URI in the registration points to `main`. It only works after PR #1 is merged, and only if the repo is public.
 
