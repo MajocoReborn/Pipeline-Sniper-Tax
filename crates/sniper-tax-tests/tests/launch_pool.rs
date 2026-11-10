@@ -646,16 +646,16 @@ fn the_config_is_capped_and_changes_reach_new_pools_only() {
     let admin = env.admin.pubkey();
 
     let stranger = env.funded_keypair();
-    let ix = update_config_ix(&stranger.pubkey(), &env.default_config());
+    let ix = update_config_ix(&stranger.pubkey(), &env.default_update());
     assert_fails_with(env.send(&[ix], &[&stranger]), "NotAdmin");
     for args in [
-        ConfigArgs {
+        ConfigUpdate {
             protocol_tax_share_bps: 2_001,
-            ..env.default_config()
+            ..env.default_update()
         },
-        ConfigArgs {
+        ConfigUpdate {
             launch_fee_lamports: 50_000_001,
-            ..env.default_config()
+            ..env.default_update()
         },
     ] {
         assert_fails_with(
@@ -667,10 +667,10 @@ fn the_config_is_capped_and_changes_reach_new_pools_only() {
     // A pool created before the change keeps its share, and pays the lower launch fee.
     let (old, created) = env.create_pool(PoolOptions::default());
     created.expect("create_market");
-    let raised = ConfigArgs {
+    let raised = ConfigUpdate {
         protocol_tax_share_bps: 2_000,
         launch_fee_lamports: 0,
-        ..env.default_config()
+        ..env.default_update()
     };
     env.send(&[update_config_ix(&admin, &raised)], &[])
         .expect("update_config");

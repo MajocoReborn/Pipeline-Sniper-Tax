@@ -47,6 +47,17 @@ pub enum SniperError {
     NotAdmin,
     #[msg("Signer is not the program's upgrade authority")]
     NotUpgradeAuthority,
+    // Added after the first devnet release; appended so earlier codes keep their numbers.
+    #[msg("Mint's transfer fee can still be changed")]
+    TransferFeeAuthorityPresent,
+    #[msg("Mint's transfer fee is above 5%")]
+    TransferFeeAboveCap,
+    #[msg("A sell cannot carry tax")]
+    TaxedSell,
+    #[msg("Launch fee must be 0 or at least the rent-exempt minimum")]
+    LaunchFeeBelowRent,
+    #[msg("Only the proposed admin can accept")]
+    NotPendingAdmin,
 }
 
 /// Maps a maths error to the program's error.

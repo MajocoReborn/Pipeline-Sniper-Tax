@@ -1,6 +1,6 @@
 # Pipeline Sniper Tax: ontwerpplan
 
-> Status: **plan, nog geen code.** Gebaseerd op Pipeline commit `a2d5bfb`
+> Status: **gebouwd en op devnet;** dit is het ontwerp, met de voortgang in §10. Gebaseerd op Pipeline commit `a2d5bfb`
 > (`MetalLegBob/pipeline`, "Router verification and security audit, with the hardened router").
 
 ## 1. Doel
@@ -139,7 +139,8 @@ pub struct ProtocolConfig {          // PDA ["config"]
     pub protocol_tax_share_bps: u16, // standaard 1000 (10%)
     pub launch_fee_lamports: u64,    // standaard 10_000_000 (0,01 SOL)
     pub bump: u8,
-    pub _reserved: [u8; 64],
+    pub pending_admin: Pubkey,       // voorgestelde admin (propose_admin); default = geen
+    pub _reserved: [u8; 32],         // pending_admin nam de eerste 32 van de 64 bytes in
 }
 ```
 
@@ -225,7 +226,7 @@ Handler, in deze volgorde:
 Handler:
 
 1. Beide bedragen moeten groter dan 0 zijn.
-2. De mint-policy wordt opnieuw gecontroleerd (de freeze- en mint-authority kunnen sinds init veranderd zijn).
+2. De mint-policy wordt opnieuw gecontroleerd. De freeze- en mint-authority kunnen sinds init veranderd zijn, en een transfer fee ook. Voor beide mints geldt: geen fee-authority, en de geldende en de geplande fee hooguit 5% (§6).
 3. De launch-fee `min(pool.launch_fee_lamports, config.launch_fee_lamports)` gaat met een system-transfer van `creator` naar `treasury` (overgeslagen bij 0).
 4. Er wordt gecrediteerd **wat aankwam**: vault-saldo na min vóór, wat transfer-fee-tokens afvangt.
 5. `launch_ts = Clock.unix_timestamp`, `status = Live`.
@@ -259,11 +260,15 @@ Handler: zet `accrued_protocol_quote` op 0 en maakt het bedrag over naar de trea
 ### 5.8 `initialize_config(...)` en `update_config(...)`: beheer
 
 - `initialize_config`: alleen de upgrade authority van het programma, één keer. Gecontroleerd via `program.programdata_address() == Some(program_data.key())` en `program_data.upgrade_authority_address == Some(signer)`. Maakt `config` aan met `init, seeds = [b"config"], bump`.
-- `update_config`: `has_one = admin`. Valideert `protocol_tax_share_bps ≤ 2000` en `launch_fee_lamports ≤ 0,05 SOL`. Kan `admin` en `treasury` wijzigen.
+- `update_config(ConfigUpdate)`: `has_one = admin`. Valideert `protocol_tax_share_bps ≤ 2000` en `launch_fee_lamports ≤ 0,05 SOL`. Een launch-fee is 0 of minstens het rent-minimum van een leeg account (`Rent::get`), anders faalt elke launch naar een lege treasury. Wijzigt `treasury` en de fees, niet de admin. `initialize_config` valideert hetzelfde.
+- `propose_admin(new_admin)`: `has_one = admin`. Zet `pending_admin`. Een nieuw voorstel vervangt het vorige; `Pubkey::default()` trekt het in.
+- `accept_admin()`: getekend door `pending_admin`. Maakt die admin en wist het voorstel. Zo komt de config nooit bij een adres dat niet kan tekenen. Een multisig (bijvoorbeeld de vault-PDA van Squads) kan via een CPI tekenen.
 
 ### 5.9 Foutcodes
 
-`BadInitData`, `NotPipeline`, `WrongAccount`, `TraderMismatch`, `NotCreator`, `NotLive`, `AlreadyLaunched`, `OneSidedDeposit`, `InsufficientInput`, `InsufficientLiquidity`, `NothingToClaim`, `ForbiddenMintExtension`, `FreezeAuthorityPresent`, `MintAuthorityPresent`, `MathOverflow`, `WrongTreasury`, `FeeAboveCap`, `NotUpgradeAuthority`.
+In deze volgorde (Anchor nummert vanaf 6000; nieuwe codes komen achteraan, zodat bestaande nummers blijven):
+
+`BadInitData`, `InvalidSchedule`, `NotPipeline`, `WrongAccount`, `TraderMismatch`, `NotCreator`, `NotLive`, `AlreadyLaunched`, `OneSidedDeposit`, `InsufficientInput`, `InsufficientLiquidity`, `NothingToClaim`, `ForbiddenMintExtension`, `FreezeAuthorityPresent`, `MintAuthorityPresent`, `SameMint`, `MathOverflow`, `WrongTreasury`, `FeeAboveCap`, `BadConfig`, `NotAdmin`, `NotUpgradeAuthority`, `TransferFeeAuthorityPresent`, `TransferFeeAboveCap`, `TaxedSell`, `LaunchFeeBelowRent`, `NotPendingAdmin`.
 
 ## 6. Token-2022-beleid (launch-token)
 
@@ -274,8 +279,8 @@ Gecontroleerd in `pipeline_init_market` en opnieuw in `launch`, door de mint te 
 | Freeze authority | **Moet `None` zijn** | Anders kan de creator de vault of de wallets van kopers bevriezen (honeypot) |
 | Mint authority | **`None` bij launch** (beslispunt B5) | Anders is oneindig bijminten en dumpen mogelijk |
 | MetadataPointer, TokenMetadata, Group(Pointer), GroupMember(Pointer) | Toegestaan | Alleen cosmetisch |
-| TransferFeeConfig | Toegestaan | `credited_input` meet wat aankomt. Clients rekenen de output om |
-| TransferHook | Toegestaan, accounts worden doorgegeven | De call depth past precies: router(1) → strategy(2) → token(3) → hook(4). Metadata waarschuwt dat een hook verkopen kan blokkeren |
+| TransferFeeConfig | Toegestaan als `transfer_fee_config_authority` `None` is en de geldende en de geplande fee hooguit 500 bps zijn (bij `launch`) | `credited_input` meet wat aankomt. Clients rekenen de output om. Met een fee-authority kan de fee na de launch naar 100%, en levert elke verkoop niets op (review H1) |
+| TransferHook | **Geweigerd** | Een hook kan transfers naar de vault weigeren en zo elke verkoop blokkeren; de hook-authority kan het hook-programma altijd vervangen (review H2) |
 | InterestBearingConfig, ScaledUiAmount | Toegestaan | Beïnvloeden alleen het UI-bedrag. De wiskunde draait op ruwe bedragen |
 | MintCloseAuthority | Toegestaan | Sluiten kan alleen bij supply 0 |
 | **PermanentDelegate** | **Geweigerd** | De delegate kan de vaults leeghalen |
@@ -285,7 +290,7 @@ Gecontroleerd in `pipeline_init_market` en opnieuw in `launch`, door de mint te 
 | **ConfidentialTransfer\***, ConfidentialMintBurn | **Geweigerd** | Vertroebelt de vault-boekhouding |
 | Onbekende (nieuwe) extensie | **Geweigerd** | Fail-closed |
 
-De quote-mint krijgt **geen** freeze-check (USDC heeft een freeze authority), maar wel dezelfde extensie-denylist.
+De quote-mint krijgt **geen** freeze-check (USDC heeft een freeze authority), maar wel dezelfde extensie-allowlist en dezelfde fee-regel. Eén verschil: op de quote-mint mag een **TransferHook** (keuze van de eigenaar). De accounts worden aan elke transfer doorgegeven. De call depth past precies: router(1) → strategy(2) → token(3) → hook(4). Een kwaadwillende hook op de quote-mint kan verkopen blokkeren; dat restrisico staat in de review onder H2.
 
 ## 7. Repo-structuur en dependencies
 
@@ -334,6 +339,10 @@ Pipeline-Sniper-Tax/
 | A17 | Een nep-`config` wordt meegegeven | `Account<ProtocolConfig>` met `seeds = [b"config"]` |
 | A18 | De dev-fee wordt naar een verkeerd account gesweept | De bestemming moet de ATA van `config.treasury` zijn |
 | A19 | De admin-key wordt gestolen | De schade blijft binnen de caps en geldt alleen voor nieuwe pools. Aanbevolen: admin op een multisig (bijvoorbeeld Squads) |
+| A20 | De creator houdt de fee-authority van een mint en zet de fee na de launch op 100% (honeypot, review H1) | Bij `launch`, voor beide mints: fee-authority `None`, geldende en geplande fee ≤ 5% |
+| A21 | Een transfer hook op het launch-token weigert transfers naar de vault (honeypot, review H2) | `TransferHook` geweigerd op het launch-token |
+| A22 | De admin draagt de config over aan een verkeerd adres (review L2) | Twee stappen: `propose_admin`, dan `accept_admin` door de nieuwe admin |
+| A23 | Een launch-fee onder het rent-minimum laat elke launch naar een lege treasury falen (review L1) | `update_config` en `initialize_config` weigeren zo'n fee |
 
 ## 9. Testplan
 
@@ -363,7 +372,8 @@ Pipeline-Sniper-Tax/
 **Token-2022:**
 
 - Een launch-token met TransferFee (input- én outputkant).
-- TransferHook, met de `test-hook`- en `test-hook-refill`-programma's uit Pipeline.
+- Geweigerd: een fee-authority, een fee boven 5% (geldend of gepland), op beide mints.
+- TransferHook op de quote-mint, met een eigen test-hook die transfers telt. Een hook op het launch-token wordt geweigerd.
 - Geweigerde mints: PermanentDelegate, NonTransferable, Pausable, DefaultAccountState, freeze authority aanwezig en mint authority aanwezig.
 - Een Token-2022-token tegen een SPL-quote (WSOL).
 
@@ -406,10 +416,11 @@ Pipeline-Sniper-Tax/
   - H2: een transfer hook kan verkopen blokkeren.
 
   Daarnaast operationele punten (M1: multisig of bevriezen) en kleinere punten. Geen bevinding laat iemand zonder medewerking van de creator of de beheerder geld uit een pool halen.
+- **Fase 6, oplossingen (10 november):** H1, H2, L1, L2, I1 en I2 opgelost in het programma, volgens B10–B13. De nieuwe binary (sha256 `9f24dafa0168585de8e15a519a178ed14e6e2bb7d3f8443862eff1db6379f7cd`) wacht op de upgrade op devnet door de eigenaar. Tests in `findings.rs` (6) en `transfer_hook.rs` (nu op de quote-mint). Een handmatige mutatieronde op de nieuwe checks: 20 van 20 mutanten gevangen.
 
 ## 11. Beslissingen
 
-Alle beslissingen zijn genomen. B1–B8 zijn goedgekeurd zoals aanbevolen, B9 is gekozen als A plus een kleine B:
+Alle beslissingen zijn genomen. B1–B8 zijn goedgekeurd zoals aanbevolen, B9 is gekozen als A plus een kleine B. B10–B13 volgen uit de review (10 november):
 
 | # | Vraag | Besluit |
 |---|---|---|
@@ -422,3 +433,7 @@ Alle beslissingen zijn genomen. B1–B8 zijn goedgekeurd zoals aanbevolen, B9 is
 | B7 | Markt-type | Constant-product met echte liquiditeit (v1); bonding curve met virtuele reserve eventueel in v2 |
 | B8 | Permanente fee na het venster (`end_bps`) | 0% standaard, max 5% |
 | B9 | Verdienmodel voor de dev van het programma | 10% van de sniper tax (cap 20%) plus 0,01 SOL per launch (cap 0,05 SOL), vastgezet per pool. Zie §3.5 |
+| B10 | Transfer fee (review H1) | Alleen zonder fee-authority, en de geldende en de geplande fee hooguit 5%. Voor beide mints |
+| B11 | Transfer hook (review H2) | Geweigerd op het launch-token, toegestaan op de quote-mint |
+| B12 | Kleine punten (review I1, I2, L1, L2) | In dezelfde versie |
+| B13 | Deploy van de nieuwe versie | De eigenaar upgradet lokaal met zijn eigen wallet |

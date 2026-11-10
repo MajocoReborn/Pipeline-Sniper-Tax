@@ -26,6 +26,7 @@ pub mod state;
 pub mod token;
 
 pub use errors::SniperError;
+pub use policy::MintRole;
 pub use state::*;
 
 declare_id!("EZwLuZ8mSiBoeKtbHwQK4kxCqqj4JuureT1kHpTK3i6b");
@@ -64,8 +65,8 @@ pub mod sniper_tax {
             market_signer,
             SniperError::NotPipeline
         );
-        policy::check_extensions(&accounts.token_mint.to_account_info())?;
-        policy::check_extensions(&accounts.quote_mint.to_account_info())?;
+        policy::check_extensions(&accounts.token_mint.to_account_info(), MintRole::Token)?;
+        policy::check_extensions(&accounts.quote_mint.to_account_info(), MintRole::Quote)?;
 
         let config = &accounts.config;
         let (protocol_tax_share_bps, launch_fee_lamports) =
@@ -252,9 +253,13 @@ pub mod sniper_tax {
             SniperError::OneSidedDeposit
         );
         let accounts = &ctx.accounts;
-        policy::check_extensions(&accounts.token_mint.to_account_info())?;
-        policy::check_extensions(&accounts.quote_mint.to_account_info())?;
+        let token_mint = accounts.token_mint.to_account_info();
+        let quote_mint = accounts.quote_mint.to_account_info();
+        policy::check_extensions(&token_mint, MintRole::Token)?;
+        policy::check_extensions(&quote_mint, MintRole::Quote)?;
         policy::check_launch_authorities(&accounts.token_mint)?;
+        policy::check_transfer_fee(&token_mint)?;
+        policy::check_transfer_fee(&quote_mint)?;
 
         let fee = math::launch_fee_due(
             accounts.pool.launch_fee_lamports,
@@ -378,19 +383,35 @@ pub mod sniper_tax {
         config.protocol_tax_share_bps = args.protocol_tax_share_bps;
         config.launch_fee_lamports = args.launch_fee_lamports;
         config.bump = ctx.bumps.config;
-        config._reserved = [0; 64];
+        config.pending_admin = Pubkey::default();
+        config._reserved = [0; 32];
         Ok(())
     }
 
-    /// Changes the protocol config, within the caps. Pools already created keep the
+    /// Changes the treasury and fees, within the caps. Pools already created keep the
     /// tax share and launch fee they recorded (a launch pays the lower fee).
-    pub fn update_config(ctx: Context<UpdateConfig>, args: ConfigArgs) -> Result<()> {
+    pub fn update_config(ctx: Context<UpdateConfig>, args: ConfigUpdate) -> Result<()> {
         args.validate()?;
         let config = &mut ctx.accounts.config;
-        config.admin = args.admin;
         config.treasury = args.treasury;
         config.protocol_tax_share_bps = args.protocol_tax_share_bps;
         config.launch_fee_lamports = args.launch_fee_lamports;
+        Ok(())
+    }
+
+    /// The admin proposes a successor, who takes over by signing `accept_admin`, so a
+    /// mistyped address or one that can't sign never takes the config (finding L2). A new
+    /// proposal replaces the last; `Pubkey::default()` withdraws it.
+    pub fn propose_admin(ctx: Context<UpdateConfig>, new_admin: Pubkey) -> Result<()> {
+        ctx.accounts.config.pending_admin = new_admin;
+        Ok(())
+    }
+
+    /// The proposed admin takes over the config.
+    pub fn accept_admin(ctx: Context<AcceptAdmin>) -> Result<()> {
+        let config = &mut ctx.accounts.config;
+        config.admin = ctx.accounts.new_admin.key();
+        config.pending_admin = Pubkey::default();
         Ok(())
     }
 }
@@ -599,12 +620,12 @@ pub struct ClaimTax<'info> {
     pub quote_mint: InterfaceAccount<'info, Mint>,
     #[account(mut)]
     pub quote_vault: InterfaceAccount<'info, TokenAccount>,
-    /// Any account in the quote mint, other than the vault itself.
+    /// Any account in the quote mint. The vault itself is refused by Anchor, which
+    /// rejects the same writable account twice.
     #[account(
         mut,
         token::mint = quote_mint,
         token::token_program = token_program_quote,
-        constraint = destination.key() != quote_vault.key() @ SniperError::WrongAccount,
     )]
     pub destination: InterfaceAccount<'info, TokenAccount>,
     pub token_program_quote: Interface<'info, TokenInterface>,
@@ -658,9 +679,24 @@ pub struct InitializeConfig<'info> {
     pub system_program: Program<'info, System>,
 }
 
+/// `update_config` and `propose_admin`, signed by the admin.
 #[derive(Accounts)]
 pub struct UpdateConfig<'info> {
     pub admin: Signer<'info>,
     #[account(mut, seeds = [CONFIG_SEED], bump = config.bump, has_one = admin @ SniperError::NotAdmin)]
+    pub config: Account<'info, ProtocolConfig>,
+}
+
+/// `accept_admin`, signed by the proposed admin.
+#[derive(Accounts)]
+pub struct AcceptAdmin<'info> {
+    pub new_admin: Signer<'info>,
+    #[account(
+        mut,
+        seeds = [CONFIG_SEED],
+        bump = config.bump,
+        constraint = config.pending_admin == new_admin.key()
+            && new_admin.key() != Pubkey::default() @ SniperError::NotPendingAdmin,
+    )]
     pub config: Account<'info, ProtocolConfig>,
 }

@@ -31,7 +31,7 @@ pub struct InitParams {
     pub tax_duration_secs: u32,
 }
 
-/// Settings for `initialize_config` and `update_config`.
+/// Settings for `initialize_config`.
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ConfigArgs {
     pub admin: Pubkey,
@@ -43,10 +43,44 @@ pub struct ConfigArgs {
 impl ConfigArgs {
     pub fn validate(&self) -> Result<()> {
         require_keys_neq!(self.admin, Pubkey::default(), SniperError::BadConfig);
-        require_keys_neq!(self.treasury, Pubkey::default(), SniperError::BadConfig);
-        math::validate_protocol_fees(self.protocol_tax_share_bps, self.launch_fee_lamports)
-            .map_err(math_error)
+        validate_settings(
+            self.treasury,
+            self.protocol_tax_share_bps,
+            self.launch_fee_lamports,
+        )
     }
+}
+
+/// Settings for `update_config`. The admin moves only through `propose_admin` and
+/// `accept_admin`.
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ConfigUpdate {
+    pub treasury: Pubkey,
+    pub protocol_tax_share_bps: u16,
+    pub launch_fee_lamports: u64,
+}
+
+impl ConfigUpdate {
+    pub fn validate(&self) -> Result<()> {
+        validate_settings(
+            self.treasury,
+            self.protocol_tax_share_bps,
+            self.launch_fee_lamports,
+        )
+    }
+}
+
+/// The treasury must be set and the fees within their caps. A launch fee is 0 or at least
+/// the rent-exempt minimum of an empty account: a smaller fee paid into an empty treasury
+/// would leave it below that minimum, and every launch would fail (finding L1).
+fn validate_settings(treasury: Pubkey, tax_share_bps: u16, launch_fee: u64) -> Result<()> {
+    require_keys_neq!(treasury, Pubkey::default(), SniperError::BadConfig);
+    math::validate_protocol_fees(tax_share_bps, launch_fee).map_err(math_error)?;
+    require!(
+        launch_fee == 0 || launch_fee >= Rent::get()?.minimum_balance(0),
+        SniperError::LaunchFeeBelowRent
+    );
+    Ok(())
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, PartialEq, Eq, InitSpace)]
@@ -70,7 +104,11 @@ pub struct ProtocolConfig {
     /// Fee a creator pays at launch. Recorded in each new pool.
     pub launch_fee_lamports: u64,
     pub bump: u8,
-    pub _reserved: [u8; 64],
+    /// Proposed by the admin, becomes the admin by signing `accept_admin`.
+    /// `Pubkey::default()` when nothing is proposed. Takes the first 32 reserved bytes, so
+    /// a config created before it existed reads as having no proposal.
+    pub pending_admin: Pubkey,
+    pub _reserved: [u8; 32],
 }
 
 /// A launch pool: a constant-product market between a launch token (index 0) and a quote
@@ -251,7 +289,7 @@ impl LaunchPool {
                 // Sells are never taxed, so there is nothing to accrue in the token vault.
                 require!(
                     quote.creator_tax == 0 && quote.protocol_fee == 0,
-                    SniperError::MathOverflow
+                    SniperError::TaxedSell
                 );
                 self.reserve_token = quote.new_reserve_in;
                 self.reserve_quote = quote.new_reserve_out;

@@ -3,9 +3,12 @@
 Een strategy voor de [Pipeline](https://github.com/MetalLegBob/pipeline)-router op Solana: een
 launch-pool die snipers belast. Een koop direct na de launch betaalt 99% tax, en die tax zakt in
 een instelbare periode (bijvoorbeeld 1,5 of 10 minuten) naar 0%. De creator-wallet is vrijgesteld.
-Werkt met SPL Token en Token-2022.
+Werkt met SPL Token en Token-2022. Om kopers te beschermen weigert een pool een launch-token
+met een mint- of freeze-authority of een transfer hook, en een transfer fee die nog kan
+veranderen of boven 5% ligt.
 
-> **Status:** in ontwikkeling, nog niet on-chain. Het ontwerp staat in [`docs/PLAN.md`](docs/PLAN.md).
+> **Status:** in ontwikkeling, live op devnet. Het ontwerp staat in [`docs/PLAN.md`](docs/PLAN.md),
+> de zelf-review en de oplossingen in [`docs/SECURITY-REVIEW.md`](docs/SECURITY-REVIEW.md).
 
 ## Repository
 
@@ -62,7 +65,8 @@ KEYPAIR=<wallet> cargo run -p sniper-tax-devnet -- demo --wait
 ```
 
 `setup` registreert het programma bij de Pipeline-router en maakt de config aan. `config`
-(met `ADMIN` en `TREASURY`, getekend door de huidige admin) draagt het beheer over. `demo` maakt
+(getekend door de huidige admin) verplaatst de treasury (`TREASURY`) en stelt met `ADMIN` een
+nieuwe admin voor; die neemt het beheer over met `accept-admin`. `demo` maakt
 een testtoken, lanceert een pool in één transactie, laat een sniper direct na de launch kopen,
 koopt opnieuw na het venster (met `--wait`) en claimt en sweept de tax.
 

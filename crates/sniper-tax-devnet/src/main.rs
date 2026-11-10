@@ -9,8 +9,11 @@
 //! KEYPAIR=deployer.json TREASURY=<address> cargo run -p sniper-tax-devnet -- setup
 //! # Launch a demo token, snipe it at launch, then claim and sweep the tax.
 //! KEYPAIR=deployer.json cargo run -p sniper-tax-devnet -- demo [--wait]
-//! # Hand the config to a new admin and treasury (signed by the current admin).
-//! KEYPAIR=admin.json ADMIN=<address> TREASURY=<address> cargo run -p sniper-tax-devnet -- config
+//! # Move the treasury, and propose a new admin (signed by the current admin). ADMIN is
+//! # optional; the proposed admin takes over with `accept-admin`.
+//! KEYPAIR=admin.json TREASURY=<address> [ADMIN=<address>] cargo run -p sniper-tax-devnet -- config
+//! # Take over as the proposed admin (signed by that admin).
+//! KEYPAIR=new-admin.json cargo run -p sniper-tax-devnet -- accept-admin
 //! ```
 //!
 //! `RPC_URL` defaults to `https://api.devnet.solana.com`. `--wait` also buys again after
@@ -73,11 +76,15 @@ fn run() -> Result<()> {
         }
         Some("demo") => demo(&rpc, &payer, args.iter().any(|a| a == "--wait")),
         Some("config") => {
-            let admin = wallet_from_env("ADMIN")?;
             let treasury = wallet_from_env("TREASURY")?;
-            hand_over_config(&rpc, &payer, admin, treasury)
+            let admin = match std::env::var("ADMIN") {
+                Ok(value) => Some(Pubkey::from_str(&value).map_err(|e| format!("ADMIN: {e}"))?),
+                Err(_) => None,
+            };
+            update_config(&rpc, &payer, treasury, admin)
         }
-        _ => Err("usage: sniper-tax-devnet setup | demo [--wait] | config".into()),
+        Some("accept-admin") => accept_admin(&rpc, &payer),
+        _ => Err("usage: sniper-tax-devnet setup | demo [--wait] | config | accept-admin".into()),
     }
 }
 
@@ -146,7 +153,7 @@ fn setup(rpc: &Rpc, payer: &Keypair, treasury: Pubkey) -> Result<()> {
 // ---------------------------------------------------------------------------------------
 
 /// An address from the environment that a wallet can sign for. A program address (off the
-/// ed25519 curve) could never sign, so handing it control would lose that control for good.
+/// ed25519 curve) can't sign, so the treasury's tokens could only be moved by that program.
 fn wallet_from_env(name: &str) -> Result<Pubkey> {
     let value = std::env::var(name).map_err(|_| format!("set {name}"))?;
     let key = Pubkey::from_str(&value).map_err(|e| format!("{name}: {e}"))?;
@@ -156,30 +163,57 @@ fn wallet_from_env(name: &str) -> Result<Pubkey> {
     Ok(key)
 }
 
-/// Moves the config's admin and treasury, keeping its fees.
-fn hand_over_config(rpc: &Rpc, admin: &Keypair, new_admin: Pubkey, treasury: Pubkey) -> Result<()> {
+fn protocol_config(rpc: &Rpc) -> Result<ProtocolConfig> {
     let account = rpc
         .account(&config_address())?
         .ok_or("no protocol config")?;
-    let config: ProtocolConfig = ProtocolConfig::decode(&account.1).ok_or("unreadable config")?;
-    let args = ConfigArgs {
-        admin: new_admin,
-        treasury,
-        protocol_tax_share_bps: config.protocol_tax_share_bps,
-        launch_fee_lamports: config.launch_fee_lamports,
-    };
-    let signature = rpc.send(&[update_config_ix(&admin.pubkey(), &args)], admin, &[])?;
-    let account = rpc
-        .account(&config_address())?
-        .ok_or("no protocol config")?;
-    let config: ProtocolConfig = ProtocolConfig::decode(&account.1).ok_or("unreadable config")?;
-    if (config.admin, config.treasury) != (new_admin, treasury) {
+    ProtocolConfig::decode(&account.1).ok_or_else(|| "unreadable config".into())
+}
+
+/// Moves the config's treasury, keeping its fees, and proposes `new_admin` if given. The
+/// admin changes only when the proposed admin accepts (`accept-admin`), so a proposal for
+/// an address nobody controls loses nothing: propose another.
+fn update_config(
+    rpc: &Rpc,
+    admin: &Keypair,
+    treasury: Pubkey,
+    new_admin: Option<Pubkey>,
+) -> Result<()> {
+    let config = protocol_config(rpc)?;
+    let mut ixs = vec![update_config_ix(
+        &admin.pubkey(),
+        &ConfigUpdate {
+            treasury,
+            protocol_tax_share_bps: config.protocol_tax_share_bps,
+            launch_fee_lamports: config.launch_fee_lamports,
+        },
+    )];
+    if let Some(new_admin) = new_admin {
+        ixs.push(propose_admin_ix(&admin.pubkey(), &new_admin));
+    }
+    let signature = rpc.send(&ixs, admin, &[])?;
+    let config = protocol_config(rpc)?;
+    if config.treasury != treasury || new_admin.is_some_and(|a| config.pending_admin != a) {
         return Err("the config did not change".into());
     }
-    println!(
-        "config admin {new_admin}, treasury {treasury}: {}",
-        explorer(&signature)
-    );
+    println!("config treasury {treasury}: {}", explorer(&signature));
+    if let Some(new_admin) = new_admin {
+        println!("proposed admin {new_admin}; it takes over by running `accept-admin`");
+    }
+    Ok(())
+}
+
+/// The proposed admin (`KEYPAIR`) takes over the config.
+fn accept_admin(rpc: &Rpc, new_admin: &Keypair) -> Result<()> {
+    let me = new_admin.pubkey();
+    if protocol_config(rpc)?.pending_admin != me {
+        return Err(format!("{me} is not the proposed admin"));
+    }
+    let signature = rpc.send(&[accept_admin_ix(&me)], new_admin, &[])?;
+    if protocol_config(rpc)?.admin != me {
+        return Err("the admin did not change".into());
+    }
+    println!("config admin {me}: {}", explorer(&signature));
     Ok(())
 }
 

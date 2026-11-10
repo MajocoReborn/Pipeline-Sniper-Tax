@@ -49,8 +49,11 @@ fn repo_root() -> PathBuf {
 pub struct MintSpec {
     pub program: Pubkey,
     pub decimals: u8,
-    /// Token-2022 transfer fee: `(bps, maximum)`.
+    /// Token-2022 transfer fee: `(bps, maximum)`. Fixed for good unless
+    /// `transfer_fee_authority` is set.
     pub transfer_fee: Option<(u16, u64)>,
+    /// Keep the admin as the transfer fee's config authority, who can change the fee.
+    pub transfer_fee_authority: bool,
     /// Token-2022 transfer hook program (the test hook).
     pub transfer_hook: Option<Pubkey>,
     pub permanent_delegate: bool,
@@ -63,6 +66,7 @@ impl MintSpec {
             program: router::TOKEN_PROGRAM_ID,
             decimals,
             transfer_fee: None,
+            transfer_fee_authority: false,
             transfer_hook: None,
             permanent_delegate: false,
             freeze_authority: false,
@@ -79,6 +83,14 @@ impl MintSpec {
     pub fn with_transfer_fee(self, bps: u16, maximum: u64) -> Self {
         MintSpec {
             transfer_fee: Some((bps, maximum)),
+            ..self
+        }
+    }
+
+    /// Keeps the admin as the transfer fee's config authority.
+    pub fn with_transfer_fee_authority(self) -> Self {
+        MintSpec {
+            transfer_fee_authority: true,
             ..self
         }
     }
@@ -239,6 +251,15 @@ impl Env {
         }
     }
 
+    /// The default settings, as `update_config` arguments.
+    pub fn default_update(&self) -> ConfigUpdate {
+        ConfigUpdate {
+            treasury: self.treasury,
+            protocol_tax_share_bps: PROTOCOL_SHARE_BPS,
+            launch_fee_lamports: LAUNCH_FEE,
+        }
+    }
+
     // ------------------------------------------------------------------ transactions
 
     /// Sends a transaction paid for by the admin, with extra signers. Asserts it fits in
@@ -331,7 +352,7 @@ impl Env {
     // ------------------------------------------------------------------ tokens
 
     /// Creates a mint whose mint authority is the admin. A mint with the test hook gets
-    /// the hook's accounts set up too.
+    /// the hook's accounts set up too. The admin withdraws withheld transfer fees.
     pub fn create_mint(&mut self, spec: &MintSpec) -> Pubkey {
         let mint = Keypair::new();
         let program = &spec.program;
@@ -367,7 +388,7 @@ impl Env {
                 spl_token_2022_interface::extension::transfer_fee::instruction::initialize_transfer_fee_config(
                     program,
                     &mint.pubkey(),
-                    Some(&authority),
+                    spec.transfer_fee_authority.then_some(&authority),
                     Some(&authority),
                     bps,
                     max,

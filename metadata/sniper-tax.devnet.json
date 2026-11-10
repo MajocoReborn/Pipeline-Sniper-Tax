@@ -1,7 +1,7 @@
 {
   "schema": "pipeline-strategy-metadata/1",
   "name": "Sniper Tax Launch",
-  "description": "Launch pool with a sniper tax: buys right after launch pay up to 99% tax on their input, falling linearly to 0% within minutes (for example 90 or 600 seconds). The creator trades tax-free and receives 90% of the tax; 10% goes to the protocol. Sells are never taxed. Launch liquidity is locked for good, and the launch token must have no mint or freeze authority. Pools are created by the project's own launcher, because their address includes the creator and the tax schedule.",
+  "description": "Launch pool with a sniper tax: buys right after launch pay up to 99% tax on their input, falling linearly to 0% within minutes (for example 90 or 600 seconds). The creator trades tax-free and receives 90% of the tax; 10% goes to the protocol. Sells are never taxed. Launch liquidity is locked for good. The launch token must have no mint or freeze authority and no transfer hook; a transfer fee on either mint must be fixed (no fee authority) and at most 5%. Pools are created by the project's own launcher, because their address includes the creator and the tax schedule.",
   "links": {
     "source": "https://github.com/MajocoReborn/Pipeline-Sniper-Tax",
     "docs": "https://github.com/MajocoReborn/Pipeline-Sniper-Tax/blob/main/docs/PLAN.md"
@@ -45,7 +45,7 @@
         { "name": "token_program_token", "source": "token_program:0" },
         { "name": "token_program_quote", "source": "token_program:1" },
         { "name": "config", "source": "pda:EZwLuZ8mSiBoeKtbHwQK4kxCqqj4JuureT1kHpTK3i6b:str:config" },
-        { "name": "treasury", "source": "fixed:HcQgsP4JmikD1SDGJAqLLa7K71CXcd7LaNACeeZbNZVh", "writable": true },
+        { "name": "treasury", "source": "fixed:DEwdbWGmGf6vdtRMkBXez2zJ71JbAaJ1DdD1s3bN8tYn", "writable": true },
         { "name": "system_program", "source": "system_program" }
       ]
     },
@@ -73,8 +73,8 @@
         { "name": "config", "source": "pda:EZwLuZ8mSiBoeKtbHwQK4kxCqqj4JuureT1kHpTK3i6b:str:config" },
         { "name": "quote_mint", "source": "mint:1" },
         { "name": "quote_vault", "source": "vault:1", "writable": true },
-        { "name": "treasury", "source": "fixed:HcQgsP4JmikD1SDGJAqLLa7K71CXcd7LaNACeeZbNZVh" },
-        { "name": "treasury_quote", "source": "pda:ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL:key:fixed:HcQgsP4JmikD1SDGJAqLLa7K71CXcd7LaNACeeZbNZVh,key:token_program:1,key:mint:1", "writable": true },
+        { "name": "treasury", "source": "fixed:DEwdbWGmGf6vdtRMkBXez2zJ71JbAaJ1DdD1s3bN8tYn" },
+        { "name": "treasury_quote", "source": "pda:ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL:key:fixed:DEwdbWGmGf6vdtRMkBXez2zJ71JbAaJ1DdD1s3bN8tYn,key:token_program:1,key:mint:1", "writable": true },
         { "name": "token_program_quote", "source": "token_program:1" }
       ]
     }

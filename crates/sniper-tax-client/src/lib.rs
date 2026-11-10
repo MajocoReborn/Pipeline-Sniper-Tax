@@ -36,10 +36,18 @@ pub struct InitParams {
     pub tax_duration_secs: u32,
 }
 
-/// Arguments of `initialize_config` and `update_config`.
+/// Arguments of `initialize_config`.
 #[derive(BorshSerialize, BorshDeserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ConfigArgs {
     pub admin: Pubkey,
+    pub treasury: Pubkey,
+    pub protocol_tax_share_bps: u16,
+    pub launch_fee_lamports: u64,
+}
+
+/// Arguments of `update_config`. The admin moves with `propose_admin` and `accept_admin`.
+#[derive(BorshSerialize, BorshDeserialize, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ConfigUpdate {
     pub treasury: Pubkey,
     pub protocol_tax_share_bps: u16,
     pub launch_fee_lamports: u64,
@@ -91,7 +99,9 @@ pub struct ProtocolConfig {
     pub protocol_tax_share_bps: u16,
     pub launch_fee_lamports: u64,
     pub bump: u8,
-    pub reserved: [u8; 64],
+    /// The proposed next admin; `Pubkey::default()` when there is none.
+    pub pending_admin: Pubkey,
+    pub reserved: [u8; 32],
 }
 
 impl ProtocolConfig {
@@ -152,12 +162,36 @@ pub fn initialize_config_ix(authority: &Pubkey, args: &ConfigArgs) -> Instructio
 }
 
 /// `update_config`, signed by the config's admin.
-pub fn update_config_ix(admin: &Pubkey, args: &ConfigArgs) -> Instruction {
+pub fn update_config_ix(admin: &Pubkey, args: &ConfigUpdate) -> Instruction {
     program_ix(
         "update_config",
         args,
         vec![
             AccountMeta::new_readonly(*admin, true),
+            AccountMeta::new(config_address(), false),
+        ],
+    )
+}
+
+/// `propose_admin`, signed by the config's admin. `Pubkey::default()` withdraws a proposal.
+pub fn propose_admin_ix(admin: &Pubkey, new_admin: &Pubkey) -> Instruction {
+    program_ix(
+        "propose_admin",
+        new_admin,
+        vec![
+            AccountMeta::new_readonly(*admin, true),
+            AccountMeta::new(config_address(), false),
+        ],
+    )
+}
+
+/// `accept_admin`, signed by the proposed admin.
+pub fn accept_admin_ix(new_admin: &Pubkey) -> Instruction {
+    program_ix(
+        "accept_admin",
+        &(),
+        vec![
+            AccountMeta::new_readonly(*new_admin, true),
             AccountMeta::new(config_address(), false),
         ],
     )
