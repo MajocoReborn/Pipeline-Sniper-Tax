@@ -41,7 +41,7 @@ the same day (slot 520838510); see "Devnet".
 | `docs/PLAN.md` | Design, account validation, threat model, decisions, progress |
 | `docs/SECURITY-REVIEW.md` | Self-review: findings, fixes and their tests |
 | `docs/LAUNCH-SITE.md` | Plan for the launch website (approved), with its progress |
-| `app/` | The launch site (Node 20.19 or later). So far `src/client`, the TypeScript client, and `src/vendor/pipeline`, Pipeline's SDK, vendored unmodified (`VENDORED.md`). `test/vectors.json` comes from the Rust client |
+| `app/` | The launch site (Node 20.19 or later). `src/client` is the TypeScript client; `src/vendor/pipeline` is Pipeline's SDK, vendored unmodified (`VENDORED.md`); `src/launch` holds the launch logic without React (form rules, both transactions, costs, simulation, `runLaunch`); `src/components` holds the page. `test/vectors.json` comes from the Rust client |
 
 ## Build and test
 
@@ -55,7 +55,17 @@ cargo clippy --workspace --all-targets -- -D warnings
 (cd programs && cargo clippy --all-targets -- -D warnings)
 cargo fmt --all -- --check && (cd programs && cargo fmt --all -- --check)
 (cd app && npm ci && npm test)                           # typecheck, prettier, vitest
+(cd app && npm run build)                                # the static site -> app/dist
+(cd app && npm run dev)                                  # the site on http://localhost:5173 (devnet)
 (cd app && npm run vectors)                              # after changing the Rust client
+```
+
+A launch from the site's own code on devnet, then a buy by another wallet through the router
+(about 0.2 devnet SOL; the public devnet RPC has no airdrop, so fund a throwaway key first and
+keep it outside the repository):
+
+```sh
+cd app && DEVNET_E2E=1 DEVNET_E2E_KEYPAIR=/path/to/throwaway.json npx vitest run test/devnet.e2e.test.ts
 ```
 
 Extra:
@@ -80,7 +90,7 @@ cargo mutants -p sniper-tax-math
 | `transfer_hook` | 1 test, with the hook on the quote mint. Every path in which the program makes transfers: `launch`, refund, the output of a sell, `claim_tax` and `sweep_protocol_fees`. With exact counter values; without the hook accounts they fail cleanly |
 | Long stress run | 43,139 trades, 12,814 of them taxed buys, without a single broken invariant |
 | Mutation test | 78 of 79 mutants caught (84 found, 5 unviable). Because of the one survivor, `cargo mutants` exits with code 2 |
-| `app` (`npm test`) | 21 tests: the TypeScript client against the Rust client's vectors |
+| `app` (`npm test`) | 37 tests: the TypeScript client against the Rust client's vectors (21), the launch form, both transactions and the cost preview (12), SOL amounts and display (4). The devnet test is skipped without `DEVNET_E2E` |
 
 The one surviving mutant is equivalent to the original code: the filter `*reserve > 0` in `Pricing::settle` can never trigger, because `check_liquidity` and the formulas already rule that case out.
 
@@ -105,6 +115,9 @@ The one surviving mutant is equivalent to the original code: the filter `*reserv
 12. **The metadata names the treasury as a fixed address** (`metadata/sniper-tax.devnet.json`, for `launch` and `sweep_protocol_fees`). If the admin moves the treasury, update the metadata too. Otherwise `launch` from a terminal fails with `WrongTreasury`. On 10 November it went from the old treasury `HcQgs…` to `DEwdb…`, and then to the devnet wallet `CUiq3QQ…`.
 13. **The Solana CLI needs a keypair file** (a JSON array of 64 bytes). A wallet that exists only as a private key, or only in a wallet app, must first be turned into one, locally: from the seed phrase with `solana-keygen recover 'prompt://?key=0/0'`, or from the private key through a hidden prompt. Never paste a key or seed phrase into a chat. The 12 words the CLI prints during a deploy belong to the temporary buffer account, not to the wallet.
 14. **The TypeScript client mirrors the Rust client.** After changing `crates/sniper-tax-client` or a layout in the program, regenerate `app/test/vectors.json` (`cd app && npm run vectors`) and make the TypeScript match. CI regenerates the vectors and fails if the committed file differs.
+15. **The site's cost preview must stay exact.** `app/src/launch/run.ts` refuses to send a transaction that would spend more than its share of `launchCosts` (`chain.ts`). If a launch starts creating another account (a change in the program or the router), add it to `launchCosts` and `SPACE`, or every launch from the site stops before the wallet is asked.
+16. **The Content Security Policy is in `app/index.html`.** `connect-src` lists every host the page talks to; a new RPC or API host goes there, or the browser blocks it. Only the dev server allows inline styles (`vite.config.ts`). `frame-ancestors` only works as an HTTP header, so the host must send `frame-ancestors 'none'`.
+17. **A launch is two transactions.** If the pool transaction fails or the creator declines it, the token already exists, with its whole supply in the creator's wallet. The page then offers to create the pool for that token (`createPool`), with the same form: the pool's address depends on the creator and the tax schedule, and its tokens on the creator's share.
 
 ## Devnet
 
@@ -233,7 +246,7 @@ In addition, the unchanged source (commit `8bb831b`) built exactly `222ee769…`
 
 ## Open items
 
-1. **Launch site:** the plan in [`LAUNCH-SITE.md`](LAUNCH-SITE.md) is approved (the name and domain come later). Milestone 1, the TypeScript client, is done; next is milestone 2, the launch flow on devnet.
+1. **Launch site:** the plan in [`LAUNCH-SITE.md`](LAUNCH-SITE.md) is approved (the name and domain come later). Milestone 1, the TypeScript client, is done. Milestone 2, the launch page, is built; its devnet run is in `LAUNCH-SITE.md` once done. Next is milestone 3, the launch list and token page.
 2. **Optional:** run `demo` on devnet (about 0.2 SOL) to see a full launch on the new version.
 3. **Phase 6:** the self-review is in [`SECURITY-REVIEW.md`](SECURITY-REVIEW.md). H1, H2, L1, L2, I1 and I2 are fixed. Still open: M1 and M2 (operational), L3 (display extensions) and the residual risk of a hook on the quote mint. After that, an external audit.
 4. **Before mainnet:**

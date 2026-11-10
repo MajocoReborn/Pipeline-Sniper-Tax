@@ -111,6 +111,16 @@ The site builds transactions that move users' money, so:
 
   Pipeline's SDK is vendored unmodified in `app/src/vendor/pipeline` (`VENDORED.md`). `crates/sniper-tax-client/examples/ts_vectors.rs` writes `app/test/vectors.json`: addresses, instruction bytes and flags, encoded accounts, and 324 tax rates. The 21 tests in `app/test/client.test.ts` match all of it, and CI fails if the vectors are stale. Of nine deliberate bugs in the client, the tests catch seven; the other two (`<= 0` as `< 0`, and `>= duration` as `> duration` in the tax curve) give the same rate at those points for every schedule the program accepts.
 
+- **Milestone 2, built (10 November); the devnet run follows.** The launch logic is in `app/src/launch`, without React, so the page and the tests share it; the page is in `app/src/components`.
+  - The form and its rules (`form.ts`): the three presets, a permanent fee of 0 to 5%, a creator share of 0 to 20%, at least 0.05 SOL for the pool, and an https link for the image.
+  - The two transactions (`transactions.ts`):
+    - the token: Token-2022 with frozen metadata, no freeze authority, and the mint authority revoked after minting; at most 875 bytes;
+    - the pool: wrap the SOL, `create_market`, both fee accounts and `launch`; at most 1,071 of the 1,232 bytes.
+  - The cost preview (`chain.ts`) reads rent from the cluster and splits the costs per transaction. Each transaction is simulated first. It isn't sent if the simulation fails, or if it would spend more than its share of the preview (`run.ts`).
+  - If the creator declines the second transaction, or it fails, the token already exists; the page then offers to create the pool for it.
+  - Wallets connect through the Wallet Standard and sign with `signAndSendTransaction`. The page has a strict Content Security Policy and shows everything the creator types as text only.
+  - Checked in Chromium with a stand-in wallet, on desktop and phone widths: with an unfunded key, the simulation stopped the launch and the wallet was never asked.
+
 ## 8. Decisions
 
 The owner took every recommendation on 10 November 2026; the name and domain come later.

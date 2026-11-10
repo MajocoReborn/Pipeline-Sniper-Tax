@@ -17,7 +17,7 @@ above 5%.
 | `docs/SECURITY-REVIEW.md` | Self-review: findings, evidence, fixes and their tests |
 | `docs/PLAN.md` | Design, account validation, threat model, test plan and phases |
 | `docs/HANDOFF.md` | Current state, commands, pitfalls and devnet details, for the next session |
-| `docs/LAUNCH-SITE.md` | Plan for the launch website (awaiting approval) |
+| `docs/LAUNCH-SITE.md` | Plan for the launch website (approved), with its progress |
 | `crates/sniper-tax-math` | Pure maths: the tax curve, the tax split and constant-product pricing, with property tests |
 | `programs/sniper-tax` | The Anchor program: the Pipeline strategy |
 | `crates/sniper-tax-client` | Addresses, account types and instruction builders, for launchers, scripts and integrators |
@@ -25,7 +25,7 @@ above 5%.
 | `test-programs/test-hook` | Test transfer hook for the integration tests |
 | `crates/sniper-tax-devnet` | Registration, config and a demo launch on devnet |
 | `metadata/sniper-tax.devnet.json` | Strategy metadata for Pipeline terminals (devnet) |
-| `app/` | The launch site, in progress: so far its TypeScript client, tested against the Rust client |
+| `app/` | The launch site, in progress: a devnet launch page (Vite, React, `@solana/kit`) and its TypeScript client, tested against the Rust client |
 
 ## Build and test
 
@@ -38,7 +38,8 @@ You need `cargo-build-sbf` 4.6.0 (`cargo install cargo-build-sbf --version 4.6.0
 (cd test-programs && cargo build-sbf)  # the test hook, into test-programs/target/deploy
 scripts/fetch-pipeline-router.sh       # the router live on devnet, into fixtures/
 cargo test --workspace                 # maths, property and integration tests
-(cd app && npm ci && npm test)         # the TypeScript client (Node 20.19 or later)
+(cd app && npm ci && npm test)         # the site and its client (Node 20.19 or later)
+(cd app && npm run dev)                # the site on http://localhost:5173, against devnet
 ```
 
 ## Devnet
