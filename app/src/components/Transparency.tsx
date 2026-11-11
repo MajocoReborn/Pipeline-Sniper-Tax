@@ -82,8 +82,10 @@ export function Transparency({
                             Can still be upgraded by <AddressLink address={program.upgradeAuthority ?? ''} /> (devnet).
                             Last deployed at slot {program.lastDeploySlot?.toString() ?? '?'}.
                         </>
-                    ) : (
+                    ) : program.flags.includes('frozen') ? (
                         'Frozen: it can never change.'
+                    ) : (
+                        'Its upgrade authority could not be read from the chain.'
                     )}{' '}
                     <ExternalLink href={`${REPOSITORY}/blob/main/docs/SECURITY-REVIEW.md`}>
                         Security review

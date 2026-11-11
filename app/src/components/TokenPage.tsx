@@ -11,7 +11,7 @@ import { tokenBalance } from '../launch/chain.js';
 import { formatBps, formatDuration, formatSignificant, formatSol } from '../launch/units.js';
 import { getTrades } from '../market/api.js';
 import { taxHistory } from '../market/history.js';
-import { readVerifiedPool } from '../market/pools.js';
+import { isSolPool, readVerifiedPool } from '../market/pools.js';
 import { tokenView, valueSeries } from '../market/view.js';
 import { href } from '../route.js';
 import { inspectProgram, marketPda } from '../vendor/pipeline/index.js';
@@ -71,6 +71,19 @@ export function TokenPage({ pool, account }: { pool: Address; account: UiWalletA
         );
     }
 
+    if (!isSolPool(verified)) {
+        return (
+            <section className="card">
+                <h2>Not a pool against SOL</h2>
+                <p>
+                    <code>{pool}</code> is a sniper-tax pool, but it trades against another token than SOL. Every figure
+                    on this site is in SOL, so the site doesn't show or trade it.
+                </p>
+                <a href={href.launches}>Back to the launches</a>
+            </section>
+        );
+    }
+
     const view = tokenView(verified);
     const tax = currentTaxBps(verified.pool, now);
     const left = Number(secondsUntilWindowEnds(verified.pool, now));
@@ -84,7 +97,10 @@ export function TokenPage({ pool, account }: { pool: Address; account: UiWalletA
                         <TokenImage uri={view.uri} symbol={view.symbol} size={56} />
                         <div>
                             <h2>
-                                {view.name} <span className="muted">{view.symbol}</span>
+                                <bdi>{view.name}</bdi>{' '}
+                                <span className="muted">
+                                    <bdi>{view.symbol}</bdi>
+                                </span>
                             </h2>
                             <p className="muted">
                                 <AddressLink address={verified.keys.tokenMint} /> · created by{' '}

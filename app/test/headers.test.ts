@@ -31,6 +31,33 @@ describe('response headers', () => {
         expect(headers.get('x-frame-options')).toBe('DENY');
     });
 
+    it('keep browsers on https for a year', () => {
+        expect(headers.get('strict-transport-security')).toMatch(/^max-age=(\d+)$/);
+        expect(Number(/\d+/.exec(headers.get('strict-transport-security')!)![0])).toBeGreaterThanOrEqual(31_536_000);
+    });
+
+    it('allow scripts, styles and connections only from the site and its two data sources', () => {
+        const directives = new Map(
+            meta!.split(';').map((d) => {
+                const [name, ...values] = d.trim().split(/\s+/);
+                return [name!, values] as const;
+            }),
+        );
+        expect(directives.get('default-src')).toEqual(["'self'"]);
+        expect(directives.get('script-src')).toEqual(["'self'"]);
+        expect(directives.get('style-src')).toEqual(["'self'"]);
+        expect(directives.get('object-src')).toEqual(["'none'"]);
+        expect(directives.get('base-uri')).toEqual(["'none'"]);
+        expect(directives.get('form-action')).toEqual(["'none'"]);
+        // Every host the page may send data to. A new one must be a deliberate change, here too.
+        expect(directives.get('connect-src')).toEqual([
+            "'self'",
+            'https://api.devnet.solana.com',
+            'https://pipeline-devnet.up.railway.app',
+        ]);
+        expect(meta).not.toMatch(/unsafe-inline|unsafe-eval|\*/);
+    });
+
     it('stop content sniffing and referrers', () => {
         expect(headers.get('x-content-type-options')).toBe('nosniff');
         expect(headers.get('referrer-policy')).toBe('no-referrer');

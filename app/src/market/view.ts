@@ -9,10 +9,68 @@ import type { VerifiedPool } from './pools.js';
 
 const SOL_DECIMALS = 9;
 
+/** The longest name and symbol the pages show; the site's own launches stay well under both. */
+export const MAX_SHOWN_NAME = 40;
+export const MAX_SHOWN_SYMBOL = 12;
+const MAX_IMAGE_URL_LENGTH = 512;
+
+/**
+ * A token's own text, made safe to show next to the site's: anyone can create a pool for a
+ * token with any metadata, so the name and symbol are an attacker's to choose. Format
+ * characters go (among them the direction overrides that reorder the text around them, and
+ * the zero-width ones nobody can see), control characters become spaces, stacks of combining marks are cut down, every kind
+ * of white space becomes one plain space, and what is left is cut to `max` characters.
+ */
+export function displayText(text: string, max: number): string {
+    const cleaned = text
+        .replace(/[\p{Cf}\p{Co}\p{Cn}]/gu, '')
+        .replace(/[\p{Cc}\p{Zl}\p{Zp}]/gu, ' ')
+        // At most two combining marks in a row, so stacked marks can't grow over the lines around them.
+        .replace(/(\p{M}{2})\p{M}+/gu, '$1')
+        .replace(/[\s\p{Z}]+/gu, ' ')
+        .trim();
+    const characters = [...cleaned];
+    return characters.length > max ? `${characters.slice(0, max - 1).join('')}…` : cleaned;
+}
+
+/** Hosts a page should not be made to ask for an image: this computer and private networks. */
+function isPublicHost(host: string): boolean {
+    const name = host.toLowerCase().replace(/\.$/, '');
+    // An IPv6 literal, or an IPv4 address: `URL` rewrites every way of writing one to digits and dots.
+    if (name.startsWith('[') || /^[\d.]+$/.test(name)) {
+        return false;
+    }
+    if (!name.includes('.')) {
+        return false;
+    }
+    return !/(^|\.)(localhost|local|internal|intranet|lan|home|corp|test|invalid|example|home\.arpa)$/.test(name);
+}
+
+/**
+ * The token's image link if the page may load it: an https address without a user name,
+ * password or port, on a public host name. `null` otherwise, and the page shows a placeholder.
+ * The image host still sees the visitor's IP address; see docs/SITE-SECURITY-REVIEW.md (W4).
+ */
+export function imageUrl(uri: string | null): string | null {
+    if (uri === null || uri.length > MAX_IMAGE_URL_LENGTH) {
+        return null;
+    }
+    let url: URL;
+    try {
+        url = new URL(uri);
+    } catch {
+        return null;
+    }
+    if (url.protocol !== 'https:' || url.username !== '' || url.password !== '' || url.port !== '') {
+        return null;
+    }
+    return isPublicHost(url.hostname) ? url.href : null;
+}
+
 export type TokenView = {
     name: string;
     symbol: string;
-    /** The metadata's link: an image, or a JSON document with one. */
+    /** The metadata's link if the page may load it as an image (`imageUrl`). */
     uri: string | null;
     decimals: number;
     supply: bigint;
@@ -32,9 +90,9 @@ export function tokenView(v: VerifiedPool): TokenView {
     const price =
         reserveToken > 0n ? (Number(reserveQuote) / Number(reserveToken)) * 10 ** (decimals - SOL_DECIMALS) : 0;
     return {
-        name: metadata?.name || 'Unnamed token',
-        symbol: metadata?.symbol || shortAddress(v.pool.tokenMint),
-        uri: metadata?.uri || null,
+        name: displayText(metadata?.name ?? '', MAX_SHOWN_NAME) || 'Unnamed token',
+        symbol: displayText(metadata?.symbol ?? '', MAX_SHOWN_SYMBOL) || shortAddress(v.pool.tokenMint),
+        uri: imageUrl(metadata?.uri || null),
         decimals,
         supply,
         price,
@@ -60,6 +118,8 @@ export function trustChecks(v: VerifiedPool): TrustCheck[] {
     }
     const metadata = mint.extensions.tokenMetadata;
     const pointer = mint.extensions.metadataPointer;
+    // Wallets follow the pointer. It is fixed if it can't be moved and points at the mint itself.
+    const pointerIsFixed = !pointer || (pointer.authority === null && pointer.metadataAddress === mint.mint);
     const checks: TrustCheck[] = [
         {
             label: 'Fixed supply',
@@ -79,12 +139,14 @@ export function trustChecks(v: VerifiedPool): TrustCheck[] {
         },
         {
             label: 'Name and image fixed',
-            ok: metadata !== undefined && metadata.updateAuthority === null && (!pointer || pointer.authority === null),
+            ok: metadata !== undefined && metadata.updateAuthority === null && pointerIsFixed,
             detail: !metadata
                 ? 'The mint holds no metadata. It may use a separate metadata account, which this site does not read.'
                 : metadata.updateAuthority !== null
                   ? `${metadata.updateAuthority} can change the name, symbol and image.`
-                  : 'Nobody can change the name, symbol or image.',
+                  : !pointerIsFixed
+                    ? 'The mint points wallets to metadata somewhere else, or lets someone change where it points, so wallets may show another name and image than this page.'
+                    : 'Nobody can change the name, symbol or image.',
         },
     ];
     // Every other flag the SDK raises for the mint is a risk to name, except plain Token-2022.
@@ -98,6 +160,18 @@ export function trustChecks(v: VerifiedPool): TrustCheck[] {
             risks.length === 0
                 ? 'No transfer fee, hook, delegate or pause.'
                 : risks.map((f) => FLAG_DESCRIPTIONS[f]).join(' '),
+    });
+    // Review finding L3: these two change the balance a wallet shows, not what a holder owns.
+    const { scaledUiAmount, interestBearing } = mint.extensions;
+    checks.push({
+        label: 'Balances shown as held',
+        ok: !scaledUiAmount && !interestBearing,
+        detail:
+            !scaledUiAmount && !interestBearing
+                ? 'Wallets show the amount a holder really has.'
+                : `The token ${scaledUiAmount ? 'multiplies the balance wallets show' : 'adds interest to the balance wallets show'}` +
+                  `${(scaledUiAmount?.authority ?? interestBearing?.rateAuthority ?? null) !== null ? ', and someone can change by how much' : ''}. ` +
+                  'This page shows the real amounts, which the pool trades on.',
     });
     return checks;
 }

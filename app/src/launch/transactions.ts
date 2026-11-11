@@ -152,9 +152,21 @@ export function sitePoolKeys(creator: Address, mint: Address, form: LaunchForm):
 }
 
 /**
+ * What of a pool's setup is already on the chain. `create_market` and the fee accounts take no
+ * signature from the creator, so anyone who sees the token transaction can send them first;
+ * the pool they create is still the creator's (its address includes the creator and the tax
+ * schedule) and only the creator can launch it. Each instruction fails if its account exists,
+ * so the pool transaction leaves out what is already there.
+ */
+export type PoolSetup = { market: boolean; tokenFeeAccount: boolean; quoteFeeAccount: boolean };
+
+export const NOTHING_SET_UP: PoolSetup = { market: false, tokenFeeAccount: false, quoteFeeAccount: false };
+
+/**
  * Transaction 2: the pool. `treasury` is the config's current treasury. With
  * `closeQuoteAccount`, the creator's wrapped-SOL account is closed afterwards and its rent
  * returned; pass `false` if the creator already had one, so their own wrapped SOL stays.
+ * `existing` names the parts of the setup that are already on the chain (`PoolSetup`).
  */
 export async function poolInstructions(input: {
     creator: TransactionSigner;
@@ -162,11 +174,14 @@ export async function poolInstructions(input: {
     form: LaunchForm;
     treasury: Address;
     closeQuoteAccount: boolean;
+    existing?: PoolSetup;
 }): Promise<{ keys: PoolKeys; instructions: Instruction[] }> {
     const { creator, form } = input;
     const keys = await sitePoolKeys(creator.address, input.mint, form);
     const creatorQuote = await creatorQuoteAccount(keys);
     const { poolTokens } = launchAmounts(form);
+    const existing = input.existing ?? NOTHING_SET_UP;
+    const [tokenFeeAccount, quoteFeeAccount] = await feeAccountIxs(keys, creator.address);
     const instructions: Instruction[] = [
         getCreateClassicAtaInstruction({
             payer: creator,
@@ -177,8 +192,9 @@ export async function poolInstructions(input: {
         }),
         getTransferSolInstruction({ source: creator, destination: creatorQuote, amount: form.liquidityLamports }),
         getSyncNativeInstruction({ account: creatorQuote }),
-        await createMarketIx(keys, creator.address),
-        ...(await feeAccountIxs(keys, creator.address)),
+        ...(existing.market ? [] : [await createMarketIx(keys, creator.address)]),
+        ...(existing.tokenFeeAccount ? [] : [tokenFeeAccount]),
+        ...(existing.quoteFeeAccount ? [] : [quoteFeeAccount]),
         await launchIx(keys, input.treasury, poolTokens, form.liquidityLamports),
     ];
     if (input.closeQuoteAccount) {

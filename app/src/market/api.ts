@@ -224,7 +224,8 @@ export type MarketSort = 'newest' | 'trades_24h';
 /** Our markets, newest or most traded first. */
 export async function listMarkets(sort: MarketSort, limit = 50): Promise<ApiMarket[]> {
     const body = await getJson(`/v1/markets?strategy=${PROGRAM_ID}&sort=${sort}&limit=${limit}`);
-    return each(list(field(body, 'markets')), parseMarket);
+    // No more than was asked for, whatever the API sends: every market costs reads from the chain.
+    return each(list(field(body, 'markets')).slice(0, limit), parseMarket);
 }
 
 /** One market, or `null` if the API doesn't know it (or it isn't ours). */
@@ -237,7 +238,7 @@ export async function getMarket(market: Address): Promise<ApiMarket | null> {
 export async function getTrades(market: Address, limit = 100): Promise<ApiTrade[]> {
     const body = await getJson(`/v1/markets/${market}/trades?limit=${limit}`);
     // A stable sort: trades in the same slot keep the API's order.
-    return each(list(field(body, 'trades')), parseTrade).sort((a, b) =>
+    return each(list(field(body, 'trades')).slice(0, limit), parseTrade).sort((a, b) =>
         a.slot === b.slot ? 0 : a.slot > b.slot ? -1 : 1,
     );
 }

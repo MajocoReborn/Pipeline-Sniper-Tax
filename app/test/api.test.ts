@@ -83,6 +83,15 @@ describe("Pipeline's API", () => {
         expect(trades.map((x) => x.slot)).toEqual([BigInt(t.slot), BigInt(t.slot - 10)]);
     });
 
+    it('takes no more entries than it asked for', async () => {
+        const good = fixture.markets.markets[0];
+        serve({ markets: Array.from({ length: 500 }, () => good) });
+        expect(await listMarkets('newest', 50)).toHaveLength(50);
+        const t = fixture.trades.trades[0];
+        serve({ trades: Array.from({ length: 500 }, () => t) });
+        expect(await getTrades(t.market, 100)).toHaveLength(100);
+    });
+
     it('fails clearly when the API is down or answers nonsense', async () => {
         vi.stubGlobal('fetch', async () => new Response('busy', { status: 503 }));
         await expect(listMarkets('newest')).rejects.toThrow(/HTTP 503/);

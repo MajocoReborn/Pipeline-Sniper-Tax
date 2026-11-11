@@ -25,7 +25,8 @@ function ConnectButton({ wallet, onAccount }: { wallet: UiWallet; onAccount: (ac
                 }
             }}
         >
-            {wallet.icon ? <img className="wallet-icon" src={wallet.icon} alt="" /> : null}
+            {/* The Wallet Standard makes the icon a data: URI; anything else would be a request to a host the wallet names. */}
+            {wallet.icon.startsWith('data:image/') ? <img className="wallet-icon" src={wallet.icon} alt="" /> : null}
             {isConnecting ? 'Connecting…' : wallet.name}
         </button>
     );

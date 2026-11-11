@@ -24,9 +24,10 @@ export function AddressLink({ address, label }: { address: string; label?: strin
 }
 
 /**
- * The token's image from its metadata link, if that link is an https image. Links to JSON
- * documents aren't fetched (the page's CSP allows images from anywhere, but data only from
- * known hosts), so those show the symbol's first letter instead.
+ * The token's image from its metadata link, as `tokenView` passes it on: only an https link to
+ * a public host (`imageUrl`). Links to JSON documents aren't fetched (the page's CSP allows
+ * images from anywhere, but data only from known hosts), so those show the symbol's first
+ * letter instead.
  */
 export function TokenImage({ uri, symbol, size = 40 }: { uri: string | null; symbol: string; size?: number }) {
     const [failed, setFailed] = useState(false);
@@ -44,7 +45,7 @@ export function TokenImage({ uri, symbol, size = 40 }: { uri: string | null; sym
         />
     ) : (
         <span className="token-image placeholder" style={{ width: size, height: size }} aria-hidden="true">
-            {symbol.slice(0, 1)}
+            {[...symbol][0] ?? '?'}
         </span>
     );
 }

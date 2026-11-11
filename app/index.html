@@ -4,7 +4,7 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <!--
-            Only this site's own scripts and styles run. The page talks to the devnet RPC and to
+            Only this site's own scripts and styles run. The page talks to the devnet RPC (over https only) and to
             Pipeline's API, and loads token images over HTTPS. Wallet extensions inject through
             the Wallet Standard, which a CSP doesn't block. `frame-ancestors` only works as a
             header, so the host sends this policy plus `frame-ancestors 'none'` from
@@ -13,7 +13,7 @@
         -->
         <meta
             http-equiv="Content-Security-Policy"
-            content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https: data:; connect-src 'self' https://api.devnet.solana.com wss://api.devnet.solana.com https://pipeline-devnet.up.railway.app; object-src 'none'; base-uri 'none'; form-action 'none'"
+            content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https: data:; connect-src 'self' https://api.devnet.solana.com https://pipeline-devnet.up.railway.app; object-src 'none'; base-uri 'none'; form-action 'none'"
         />
         <title>Sniper Tax Launch (devnet)</title>
     </head>
