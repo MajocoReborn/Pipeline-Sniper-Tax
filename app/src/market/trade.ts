@@ -155,6 +155,12 @@ export type TradeProgress =
     | { step: 'sent'; signature: Signature }
     | { step: 'confirmed'; signature: Signature };
 
+export type TradeResult = {
+    signature: Signature;
+    /** The slot it landed in: read the pool with this as `minContextSlot` to see the trade. */
+    slot: bigint;
+};
+
 /** Simulates, sends and confirms one trade. Nothing is sent if the simulation fails. */
 export async function runTrade(input: {
     rpc: Rpc;
@@ -165,7 +171,7 @@ export async function runTrade(input: {
     minAmountOut: bigint;
     send: Sender;
     onProgress?: (progress: TradeProgress) => void;
-}): Promise<Signature> {
+}): Promise<TradeResult> {
     const { rpc, trader, send } = input;
     const onProgress = input.onProgress ?? (() => {});
     const accounts = await traderAccounts(input.verified, trader.address);
@@ -188,7 +194,7 @@ export async function runTrade(input: {
     }
     const signature = await send(message);
     onProgress({ step: 'sent', signature });
-    await confirm(rpc, signature, lifetime.lastValidBlockHeight);
+    const slot = await confirm(rpc, signature, lifetime.lastValidBlockHeight);
     onProgress({ step: 'confirmed', signature });
-    return signature;
+    return { signature, slot };
 }

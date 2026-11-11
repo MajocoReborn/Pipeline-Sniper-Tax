@@ -2,7 +2,12 @@
 // owned by our program, decodes as a `LaunchPool`, and sits at the address its own fields
 // derive, with the vaults they derive. The API only says where to look.
 
-import { getBase64Encoder, type Address } from '@solana/kit';
+import {
+    SOLANA_ERROR__JSON_RPC__SERVER_ERROR_MIN_CONTEXT_SLOT_NOT_REACHED,
+    getBase64Encoder,
+    isSolanaError,
+    type Address,
+} from '@solana/kit';
 import { TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
 import { TOKEN_2022_PROGRAM_ADDRESS } from '@solana-program/token-2022';
 
@@ -20,6 +25,9 @@ export type VerifiedPool = {
 
 const TOKEN_PROGRAMS = [TOKEN_2022_PROGRAM_ADDRESS, TOKEN_PROGRAM_ADDRESS] as const;
 const BATCH = 100;
+/** How often, and how far apart, to ask again while the RPC node is behind `minContextSlot`. */
+const BEHIND_ATTEMPTS = 10;
+const BEHIND_WAIT_MS = 500;
 const base64 = getBase64Encoder();
 
 /** The pool's keys if `address` is the address its fields derive, with matching vaults. */
@@ -46,11 +54,26 @@ export async function verifyPoolKeys(address: Address, pool: LaunchPool): Promis
 
 type Raw = { owner: Address; data: Uint8Array };
 
-async function readAccounts(rpc: Rpc, addresses: readonly Address[]): Promise<Map<Address, Raw>> {
+/**
+ * The accounts at `addresses`, as of `minContextSlot` or later. The public RPC spreads requests
+ * over nodes that can be a few slots apart, so right after a trade a plain read may come from
+ * a node that hasn't seen it yet; with `minContextSlot`, a node that is behind refuses and we
+ * ask again.
+ */
+async function readAccounts(
+    rpc: Rpc,
+    addresses: readonly Address[],
+    minContextSlot?: bigint,
+): Promise<Map<Address, Raw>> {
     const out = new Map<Address, Raw>();
+    const config = {
+        encoding: 'base64',
+        commitment: 'confirmed',
+        ...(minContextSlot ? { minContextSlot } : {}),
+    } as const;
     for (let i = 0; i < addresses.length; i += BATCH) {
         const batch = addresses.slice(i, i + BATCH);
-        const { value } = await rpc.getMultipleAccounts(batch, { encoding: 'base64', commitment: 'confirmed' }).send();
+        const { value } = await withRetryWhileBehind(() => rpc.getMultipleAccounts(batch, config).send());
         value.forEach((account, j) => {
             if (account) {
                 out.set(batch[j]!, { owner: account.owner, data: new Uint8Array(base64.encode(account.data[0])) });
@@ -60,10 +83,32 @@ async function readAccounts(rpc: Rpc, addresses: readonly Address[]): Promise<Ma
     return out;
 }
 
-/** The pools at `addresses` that pass every check, with their launch tokens. */
-export async function readVerifiedPools(rpc: Rpc, addresses: readonly Address[]): Promise<Map<Address, VerifiedPool>> {
+/** `read()`, asked again while the RPC node is behind the `minContextSlot` it was given. */
+export async function withRetryWhileBehind<T>(read: () => Promise<T>): Promise<T> {
+    for (let attempt = 1; ; attempt++) {
+        try {
+            return await read();
+        } catch (error) {
+            const behind = isSolanaError(error, SOLANA_ERROR__JSON_RPC__SERVER_ERROR_MIN_CONTEXT_SLOT_NOT_REACHED);
+            if (!behind || attempt >= BEHIND_ATTEMPTS) {
+                throw error;
+            }
+            await new Promise((resolve) => setTimeout(resolve, BEHIND_WAIT_MS));
+        }
+    }
+}
+
+/**
+ * The pools at `addresses` that pass every check, with their launch tokens. After a trade,
+ * pass the slot it landed in as `minContextSlot`, so the pools include it.
+ */
+export async function readVerifiedPools(
+    rpc: Rpc,
+    addresses: readonly Address[],
+    minContextSlot?: bigint,
+): Promise<Map<Address, VerifiedPool>> {
     const unique = [...new Set(addresses)];
-    const accounts = await readAccounts(rpc, unique);
+    const accounts = await readAccounts(rpc, unique, minContextSlot);
     const pools: { address: Address; pool: LaunchPool; keys: PoolKeys }[] = [];
     for (const address of unique) {
         const account = accounts.get(address);
@@ -85,8 +130,12 @@ export async function readVerifiedPools(rpc: Rpc, addresses: readonly Address[])
     return out;
 }
 
-export async function readVerifiedPool(rpc: Rpc, address: Address): Promise<VerifiedPool | null> {
-    return (await readVerifiedPools(rpc, [address])).get(address) ?? null;
+export async function readVerifiedPool(
+    rpc: Rpc,
+    address: Address,
+    minContextSlot?: bigint,
+): Promise<VerifiedPool | null> {
+    return (await readVerifiedPools(rpc, [address], minContextSlot)).get(address) ?? null;
 }
 
 /**
@@ -95,8 +144,10 @@ export async function readVerifiedPool(rpc: Rpc, address: Address): Promise<Veri
  */
 export async function clockOffset(rpc: Rpc): Promise<number> {
     const slot = await rpc.getSlot({ commitment: 'confirmed' }).send();
+    // Our time when that slot was the latest, so a slow `getBlockTime` doesn't count as offset.
+    const local = Date.now() / 1000;
     const blockTime = await rpc.getBlockTime(slot).send();
-    return blockTime === null ? 0 : Math.round(Number(blockTime) - Date.now() / 1000);
+    return blockTime === null ? 0 : Math.round(Number(blockTime) - local);
 }
 
 /** The cluster's time now, in Unix seconds, given `offset` from `clockOffset`. */

@@ -2,7 +2,7 @@
 // selling, and what the chain says about the token. The pool is read from the chain and
 // verified first; a pool that doesn't verify is not shown or traded.
 
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import type { Address } from '@solana/kit';
 import type { UiWalletAccount } from '@wallet-standard/react';
 
@@ -22,17 +22,22 @@ import { TradePanel } from './TradePanel.js';
 import { TradesTable } from './TradesTable.js';
 import { Transparency } from './Transparency.js';
 
-/** The trades first, then the pool: a trade the API has and the pool hasn't can't happen this way round. */
-async function loadState(pool: Address) {
+/**
+ * The trades first, then the pool: a trade the API has and the pool hasn't can't happen this
+ * way round. After the visitor's own trade, the pool is read as of the slot it landed in
+ * (`minSlot`), so the next quote starts from reserves that include it.
+ */
+async function loadState(pool: Address, minSlot: bigint) {
     const market = await marketPda(PROGRAM_ID, pool);
     const trades = await getTrades(market).catch(() => null);
-    const verified = await readVerifiedPool(siteRpc, pool);
+    const verified = await readVerifiedPool(siteRpc, pool, minSlot > 0n ? minSlot : undefined);
     return { market, trades, verified };
 }
 
 export function TokenPage({ pool, account }: { pool: Address; account: UiWalletAccount | null }) {
     const now = useChainNow();
-    const state = usePolled(() => loadState(pool), [pool], 5_000);
+    const minSlot = useRef(0n);
+    const state = usePolled(() => loadState(pool, minSlot.current), [pool], 5_000);
     const market = state.data?.market;
     const program = usePolled(() => inspectProgram(siteRpc, PROGRAM_ID, { hashExecutable: false }), []);
     const verified = state.data?.verified ?? null;
@@ -131,7 +136,18 @@ export function TokenPage({ pool, account }: { pool: Address; account: UiWalletA
                 </section>
             </div>
             <div className="token-side">
-                <TradePanel verified={verified} view={view} account={account} now={now} onTraded={state.reload} />
+                <TradePanel
+                    verified={verified}
+                    view={view}
+                    account={account}
+                    now={now}
+                    onTraded={(slot) => {
+                        if (slot !== null && slot > minSlot.current) {
+                            minSlot.current = slot;
+                        }
+                        state.reload();
+                    }}
+                />
                 <Transparency
                     verified={verified}
                     view={view}

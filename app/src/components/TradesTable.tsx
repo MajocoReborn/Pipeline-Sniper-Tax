@@ -58,7 +58,7 @@ export function TradesTable({
                                     <td className={side === 'buy' ? 'buy' : 'sell'}>
                                         {side === 'buy' ? 'Buy' : 'Sell'}
                                     </td>
-                                    <td>
+                                    <td className="trader">
                                         <code title={trade.trader}>{shortAddress(trade.trader)}</code>
                                         {byCreator ? <span className="badge">creator</span> : null}
                                         {me === trade.trader ? <span className="badge">you</span> : null}

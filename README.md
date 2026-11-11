@@ -25,7 +25,7 @@ above 5%.
 | `test-programs/test-hook` | Test transfer hook for the integration tests |
 | `crates/sniper-tax-devnet` | Registration, config and a demo launch on devnet |
 | `metadata/sniper-tax.devnet.json` | Strategy metadata for Pipeline terminals (devnet) |
-| `app/` | The launch site, in progress: a devnet launch page (Vite, React, `@solana/kit`) and its TypeScript client, tested against the Rust client |
+| `app/` | The launch site on devnet, in progress (Vite, React, `@solana/kit`): a launch page, a list of launches, and token pages with the live tax and trading; with its TypeScript client, tested against the Rust client |
 
 ## Build and test
 

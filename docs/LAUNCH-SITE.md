@@ -122,13 +122,14 @@ The site builds transactions that move users' money, so:
   - Checked in Chromium with a stand-in wallet, on desktop and phone widths: with an unfunded key, the simulation stopped the launch and the wallet was never asked.
   - **On devnet:** a launch by the end-to-end test and a launch through the page (in Chromium, with a stand-in wallet that signs in Node.js) both cost exactly what the preview showed. A buy through the router 2 seconds after launch paid 96.8% tax. Pipeline's API lists both markets and quotes with the tax, and a buy with its `/v1/swap-transaction` went through. Addresses and figures are in `HANDOFF.md` (Devnet).
 
-- **Milestone 3, in progress (11 November): built and tested, the devnet proof still to do.**
+- **Milestone 3, done (11 November):** the launch list and the token page, with trading, proven on devnet.
   - `app/src/client/pricing.ts`: the pool's trade maths (tax split, constant product, exact-in and exact-out quotes), checked against 513 cases from the Rust crate in `test/vectors.json`.
   - `app/src/market`:
     - `api.ts` reads Pipeline's API as untrusted data. Every field is checked, and malformed entries are dropped.
     - `pools.ts` accepts a pool only if our program owns it and it sits at the address its own fields derive.
     - `history.ts` works out the exact tax of every trade by walking back from the pool's reserves, including trades that share a slot. It is checked against a real devnet trade (96.80% exact, where the block time suggests 95.70%) and a simulated sniper rush.
-    - `trade.ts` builds buys and sells (wrap and unwrap SOL, Pipeline's 0.25% fee, a minimum received that allows for 2 seconds of clock drift plus slippage) and simulates before signing.
+    - `trade.ts` builds buys and sells (wrap and unwrap SOL, Pipeline's 0.25% fee, a minimum received that allows for 2 seconds of clock drift plus slippage) and simulates before signing. `runTrade` returns the slot the trade landed in.
+    - After a trade, the token page reads the pool as of that slot (`minContextSlot`), asking again while the RPC node is behind, so the next quote includes the trade.
     - `view.ts` holds the token details, the buyer checks and the value series.
   - Pages (hash routes):
     - `#/`: the launch list, with filters for new, tax still running and most traded;
@@ -136,10 +137,11 @@ The site builds transactions that move users' money, so:
     - `#/launch`: the launch form.
   - Not from the API: Pipeline's candles price each trade by what the trader paid, so a 97% sniper buy looks like a 31× spike. The chart uses the pool's reserves after each trade instead.
   - Read-only devnet check: `DEVNET_E2E=1 npx vitest run test/devnet.market.e2e.test.ts`. All four devnet markets verify, every listed trade gets an exact tax, a quoted buy simulates, and one past its minimum fails with the router's `InsufficientOutput`.
-  - **Left to do:**
-    - extend `test/devnet.e2e.test.ts`: launch, a sniper buy and a buy after the window through `market/trade.ts`, then check that `taxHistory` matches the pool's accrued tax after each buy (about 0.3 devnet SOL on a throwaway key);
-    - a buy and a sell through the token page in Chromium with a stand-in wallet;
-    - the docs, then the milestone is done.
+  - **On devnet (11 November):**
+    - `test/devnet.e2e.test.ts` launches with the Normal preset and a permanent 1%, then another wallet buys twice through `market/trade.ts`: a sniper buy seconds after launch and a buy after the 90-second window. After each buy, `taxHistory` accounts for every trade Pipeline's API lists, back to the reserves at launch, and the creator's and protocol's parts of each trade's tax add up exactly to what the pool accrued. In the final run the sniper buy (0.01 SOL, 9 seconds after launch) paid 89.20% and received 9.6 million tokens instead of about 81.8 million; the buy after the window paid the permanent 1% and received exactly the quoted 79.4 million. The pool accrued 8,118,000 lamports for the creator and 902,000 for the protocol: the sum of both taxes, to the lamport.
+    - A buy and a sell through the token page in Chromium, with a stand-in Wallet Standard wallet that signs in Node.js. The page simulated each trade before the wallet was asked. The buy (0.01 SOL at 1%) received exactly the tokens the page quoted and cost 0.01 SOL plus Pipeline's fee and the signature fee; the sell (the page's "Max") received the quoted 0.009877 SOL, and the trades list then showed both with their tax. The table fits at desktop width and scrolls inside its card on a phone; the page itself doesn't scroll sideways.
+    - **Found and fixed by the page check:** the first sell was quoted from the reserves before the visitor's own buy (0.008381 SOL; it received 0.009877). The public RPC spreads requests over nodes a few slots apart, so the reload after the buy came from a node that hadn't seen it. Reading as of the trade's slot fixes it; the repeat run matched the quote. Also: a "you" badge in the trades list no longer pushes the tax column out of view, and `clockOffset` takes our time when the slot was read, so a slow RPC answer doesn't count as clock offset.
+    - Addresses and figures are in `HANDOFF.md` (Devnet).
 
 ## 8. Decisions
 

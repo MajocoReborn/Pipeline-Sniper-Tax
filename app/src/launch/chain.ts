@@ -198,8 +198,11 @@ export async function balance(rpc: Rpc, address: Address): Promise<bigint> {
     return value;
 }
 
-/** Waits until `signature` is confirmed, or fails once its blockhash has expired. */
-export async function confirm(rpc: Rpc, signature: Signature, lastValidBlockHeight: bigint): Promise<void> {
+/**
+ * Waits until `signature` is confirmed, or fails once its blockhash has expired. Returns the
+ * slot it landed in.
+ */
+export async function confirm(rpc: Rpc, signature: Signature, lastValidBlockHeight: bigint): Promise<bigint> {
     for (;;) {
         const { value } = await rpc.getSignatureStatuses([signature]).send();
         const status = value[0];
@@ -209,7 +212,7 @@ export async function confirm(rpc: Rpc, signature: Signature, lastValidBlockHeig
             );
         }
         if (status?.confirmationStatus === 'confirmed' || status?.confirmationStatus === 'finalized') {
-            return;
+            return status.slot;
         }
         const height = await rpc.getBlockHeight({ commitment: 'confirmed' }).send();
         if (height > lastValidBlockHeight) {

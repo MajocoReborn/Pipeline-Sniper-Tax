@@ -2,9 +2,19 @@
 
 import { readFileSync } from 'node:fs';
 
-import { address, type Address } from '@solana/kit';
+import {
+    SOLANA_ERROR__RPC__TRANSPORT_HTTP_ERROR,
+    address,
+    createDefaultRpcTransport,
+    createSolanaRpcFromTransport,
+    devnet,
+    isSolanaError,
+    type Address,
+} from '@solana/kit';
 
 import type { LaunchPool } from '../src/client/index.js';
+import { RPC_URL } from '../src/config.js';
+import type { Rpc } from '../src/launch/chain.js';
 import { verifyPoolKeys, type VerifiedPool } from '../src/market/pools.js';
 
 export const vectors = JSON.parse(readFileSync(new URL('./vectors.json', import.meta.url), 'utf8'));
@@ -45,4 +55,27 @@ export async function verifiedFromVector(index = 0, fields: Partial<LaunchPool> 
         throw new Error('the vector pool does not verify');
     }
     return { address: at, pool: { ...pool, ...fields }, keys, mint: null };
+}
+
+/**
+ * The site's devnet RPC for the devnet tests, waiting and retrying when the public endpoint
+ * rate-limits (HTTP 429), which it does after a burst of requests.
+ */
+export function patientRpc(): Rpc {
+    const transport = createDefaultRpcTransport({ url: devnet(RPC_URL) });
+    const retrying = (async (request: Parameters<typeof transport>[0]) => {
+        for (let attempt = 0; ; attempt++) {
+            try {
+                return await transport(request);
+            } catch (error) {
+                const limited =
+                    isSolanaError(error, SOLANA_ERROR__RPC__TRANSPORT_HTTP_ERROR) && error.context.statusCode === 429;
+                if (!limited || attempt >= 6) {
+                    throw error;
+                }
+                await new Promise((resolve) => setTimeout(resolve, 1_000 * 2 ** attempt));
+            }
+        }
+    }) as typeof transport;
+    return createSolanaRpcFromTransport(retrying);
 }

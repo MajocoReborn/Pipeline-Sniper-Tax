@@ -690,6 +690,15 @@ table.trades th:last-child {
     text-align: right;
 }
 
+/* A "you" or "creator" badge drops under the address when space runs out, so the tax column stays in view. */
+table.trades td.trader {
+    white-space: normal;
+}
+
+table.trades td.trader code {
+    white-space: nowrap;
+}
+
 td.buy {
     color: var(--good);
     font-weight: 600;

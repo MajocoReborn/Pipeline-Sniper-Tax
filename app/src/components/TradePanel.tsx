@@ -64,7 +64,8 @@ function ConnectedTradePanel({
     view: TokenView;
     account: UiWalletAccount;
     now: bigint;
-    onTraded: () => void;
+    /** After a trade attempt, with the slot the trade landed in, or `null` if it didn't. */
+    onTraded: (slot: bigint | null) => void;
 }) {
     const signer = useWalletAccountTransactionSendingSigner(account, CHAIN);
     const [side, setSide] = useState<Side>('buy');
@@ -96,8 +97,9 @@ function ConnectedTradePanel({
             return;
         }
         setPhase({ kind: 'running', progress: null });
+        let landed: bigint | null = null;
         try {
-            const signature = await runTrade({
+            const { signature, slot } = await runTrade({
                 rpc: siteRpc,
                 trader: signer,
                 verified,
@@ -107,6 +109,7 @@ function ConnectedTradePanel({
                 send: sendWithWallet,
                 onProgress: (progress) => setPhase({ kind: 'running', progress }),
             });
+            landed = slot;
             setPhase({ kind: 'done', signature });
         } catch (error) {
             setPhase({
@@ -116,7 +119,7 @@ function ConnectedTradePanel({
             });
         } finally {
             wallet.reload();
-            onTraded();
+            onTraded(landed);
         }
     }
 
@@ -266,7 +269,7 @@ export function TradePanel(props: {
     view: TokenView;
     account: UiWalletAccount | null;
     now: bigint;
-    onTraded: () => void;
+    onTraded: (slot: bigint | null) => void;
 }) {
     if (!props.account) {
         return (
