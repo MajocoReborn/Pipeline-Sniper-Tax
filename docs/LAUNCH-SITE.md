@@ -84,7 +84,7 @@ The site builds transactions that move users' money, so:
 - **User content is data:** token names, symbols, descriptions and image URLs are untrusted; render them as text, never as HTML, and load images only over HTTPS.
 - **Supply chain:** few dependencies, a committed lockfile, pinned versions, no third-party scripts or trackers, a strict Content Security Policy.
 - **Phishing:** one official domain, linked from the README and the metadata.
-- The Security-Agent repo reviews the site like the program.
+- The Security-Agent repo reviews the site like the program. The self-review it can start from is [`SITE-SECURITY-REVIEW.md`](SITE-SECURITY-REVIEW.md).
 
 ## 6. Revenue
 
@@ -151,6 +151,15 @@ The site builds transactions that move users' money, so:
   - **On devnet:** the end-to-end test now ends with the creator finding the new pool through `creatorPools` and claiming through `runClaim`: 8,118,000 lamports unclaimed, 8,113,000 more SOL in the creator's wallet (the 5,000 difference is the signature fee), nothing left for the creator in the pool, and the protocol's part and the reserves untouched. Through the dashboard in Chromium, with the stand-in wallet as the creator, three pools were claimed, each paying exactly its unclaimed tax less the fee (8,298,000, 8,019,900 and 8,118,000 lamports); each row then showed nothing left. The wallet saw the instructions create the wrapped-SOL account, call our program and close the account, after the page said "Simulated". The page doesn't scroll sideways at 390 pixels.
 
 - **Milestone 5, in progress (11 November):** the hosting is prepared (decision S9). `app/public/_headers` sends the Content Security Policy with `frame-ancestors 'none'` and the other security headers, and `app/wrangler.jsonc` deploys `app/dist` as a Cloudflare Worker with static assets. Checked locally with wrangler and Chromium: every header arrives, the pages load without a CSP error, and framing is refused. **Live on devnet since 11 November at <https://sniper-tax-launch-devnet.majoco21.workers.dev>**, deployed from `main` on every push; checked live (headers, pages in Chromium, framing refused). Still open: the name and domain (S7) and how the Security-Agent repo reviews the site.
+  - **The security review of the site (11 November):** [`SITE-SECURITY-REVIEW.md`](SITE-SECURITY-REVIEW.md), a self-review like the program's. Thirteen findings, none of which moved a visitor's funds to an address they did not see. Fixed with tests:
+    - pools against another token than SOL are no longer shown with their reserves as SOL (W1);
+    - a launch can no longer be blocked by someone who creates the pool between its two transactions (W2);
+    - token names and symbols are cleaned of hidden and direction-changing characters and cut short (W3), and images load only from public https hosts (W4, in part);
+    - two more buyer checks: metadata that wallets read elsewhere, and extensions that change the balance a wallet shows (W5, the site's part of the program review's L3);
+    - `Strict-Transport-Security`, a tighter `connect-src`, and smaller points (W6 to W8).
+
+    Five decisions are the owner's (D1 to D5 in the review): token images, the deploy path, the site's address, copied tokens, and noticing program upgrades.
+  - **The Chromium check is a test now:** `npm run test:browser` runs the built site in Chromium with a stand-in Wallet Standard wallet against a stand-in RPC and API, in CI, in about six seconds: the launch list with hostile markets and metadata, a buy, a sell, a claim, a launch whose pool a stranger created first, simulations that must stop a transaction, and framing. `test/devnet.browser.e2e.test.ts` runs the same pages on devnet with real transactions.
 
 ## 8. Decisions
 

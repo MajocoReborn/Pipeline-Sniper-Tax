@@ -4,12 +4,17 @@ For a new session. The design and background are in [`PLAN.md`](PLAN.md), the re
 [`SECURITY-REVIEW.md`](SECURITY-REVIEW.md); this document says where everything is, how to test
 it and what to watch out for.
 
-**Latest step (11 November):** the launch site is live on devnet at
+**Latest step (11 November):** the security review of the launch site is in
+[`SITE-SECURITY-REVIEW.md`](SITE-SECURITY-REVIEW.md), with its small findings fixed and tested,
+and five decisions left to the owner (see "Open items"). The Chromium check with the stand-in
+wallet is now a test in the repository and in CI (`npm run test:browser`), with a devnet variant.
+
+**Before that (11 November):** the launch site is live on devnet at
 <https://sniper-tax-launch-devnet.majoco21.workers.dev>, on Cloudflare (decision S9), deployed from `main` on every
 push. PR #2 (milestones 1 to 4), #3 (the hosting config and security headers) and #4 (the build
 settings) are merged. See "Hosting".
 
-**Before that (11 November):** milestones 3 and 4 of the launch site are done and proven on devnet.
+**Earlier that day:** milestones 3 and 4 of the launch site are done and proven on devnet.
 Milestone 3 is the launch list and the token page, with trading: the end-to-end test makes a sniper
 buy and a buy after the window through the site's trade code and checks the tax of every trade
 against what the pool accrued, and a buy and a sell went through the token page in Chromium.
@@ -36,11 +41,18 @@ the same day (slot 520838510); see "Devnet".
   `valid` since 10 November. If the repo goes private again, it turns `metadata-unreachable`;
   then host the metadata elsewhere and update the registration's URI (the router has
   `update_metadata`).
-- CI (`.github/workflows/ci.yml`) is a single job:
-  - formatting and clippy;
-  - the sBPF build of the program;
-  - fetching the router from devnet;
-  - all tests.
+- PR #5 (`claude/milestone-3-launch-site-x9b94m`) records that the site is live; the site's
+  security review is on `claude/clever-fermat-sxyuow`, which starts from PR #5's commit.
+- GitHub's default branch was still `claude/sleepy-faraday-1fldh4` on 11 November. A new cloud
+  session then starts on that old branch, without `app/`: fetch `main` and start from there, and
+  set the default branch to `main` (repository settings, "Default branch").
+- CI (`.github/workflows/ci.yml`) has two jobs, with a read-only token and actions pinned to a
+  commit:
+  - `build-and-test`: formatting and clippy, the sBPF build of the program, fetching the
+    router from devnet, all Rust tests, and the TypeScript client's vectors;
+  - `app`: install (no install scripts, see `app/.npmrc`), `npm audit signatures`, typecheck,
+    formatting and unit tests, the build, and the built site in the runner's Chrome
+    (`test/browser.e2e.test.ts`).
 
   It has been green on every push so far.
 
@@ -59,7 +71,8 @@ the same day (slot 520838510); see "Devnet".
 | `docs/PLAN.md` | Design, account validation, threat model, decisions, progress |
 | `docs/SECURITY-REVIEW.md` | Self-review: findings, fixes and their tests |
 | `docs/LAUNCH-SITE.md` | Plan for the launch website (approved), with its progress |
-| `app/` | The launch site (Node 20.19 or later). `src/client` is the TypeScript client; `src/vendor/pipeline` is Pipeline's SDK, vendored unmodified (`VENDORED.md`); `src/launch` holds the launch logic without React (form rules, both transactions, costs, simulation, `runLaunch`); `src/market` reads markets and trades from Pipeline's API, verifies pools, works out each trade's tax (`history.ts`), builds trades (`trade.ts`) and finds a creator's pools and claims their tax (`creator.ts`); `src/components` holds the pages. `public/_headers` holds the response headers for the host and `wrangler.jsonc` the Cloudflare config (see "Hosting"). `test/vectors.json` comes from the Rust client |
+| `docs/SITE-SECURITY-REVIEW.md` | Self-review of the launch site: findings W1 to W13, fixes and their tests, and the owner's decisions D1 to D5 |
+| `app/` | The launch site (Node 20.19 or later). `src/client` is the TypeScript client; `src/vendor/pipeline` is Pipeline's SDK, vendored unmodified (`VENDORED.md`); `src/launch` holds the launch logic without React (form rules, both transactions, costs, simulation, `runLaunch`); `src/market` reads markets and trades from Pipeline's API, verifies pools, works out each trade's tax (`history.ts`), builds trades (`trade.ts`) and finds a creator's pools and claims their tax (`creator.ts`); `src/components` holds the pages. `public/_headers` holds the response headers for the host and `wrangler.jsonc` the Cloudflare config (see "Hosting"). `test/vectors.json` comes from the Rust client. `test/browser/` holds the stand-in RPC and API (`fake-chain.ts`) and the stand-in wallet and static server (`site.ts`) of the browser tests |
 
 ## Build and test
 
@@ -74,6 +87,7 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo fmt --all -- --check && (cd programs && cargo fmt --all -- --check)
 (cd app && npm ci && npm test)                           # typecheck, prettier, vitest
 (cd app && npm run build)                                # the static site -> app/dist
+(cd app && npm run test:browser)                         # builds, then the site in Chromium with a stand-in wallet (~6 s)
 (cd app && npm run dev)                                  # the site on http://localhost:5173 (devnet)
 (cd app && npm run vectors)                              # after changing the Rust client
 ```
@@ -88,6 +102,18 @@ figures, which Vitest hides for a passing test:
 ```sh
 cd app && DEVNET_E2E=1 DEVNET_E2E_KEYPAIR=/path/to/throwaway.json npx vitest run test/devnet.e2e.test.ts --silent=false
 cd app && DEVNET_E2E=1 npx vitest run test/devnet.market.e2e.test.ts --silent=false
+```
+
+The browser tests drive the built site in Chromium through `playwright-core` (one package, no
+browser download). `npm run test:browser` needs no network, keys or SOL: the RPC and the API are
+stand-ins. It uses Playwright's Chromium if one is installed (`npx playwright install chromium`),
+else the computer's Chrome; `BROWSER_E2E_CHROME=/path/to/chrome` names another. The devnet
+variant launches, buys, sells and claims through the pages with real transactions (about 0.09
+devnet SOL, of which 0.05 stays in the new pool, and about a minute):
+
+```sh
+cd app && npm run build
+cd app && DEVNET_E2E=1 DEVNET_E2E_KEYPAIR=/path/to/throwaway.json npx vitest run test/devnet.browser.e2e.test.ts --silent=false
 ```
 
 Extra:
@@ -112,8 +138,11 @@ cargo mutants -p sniper-tax-math
 | `transfer_hook` | 1 test, with the hook on the quote mint. Every path in which the program makes transfers: `launch`, refund, the output of a sell, `claim_tax` and `sweep_protocol_fees`. With exact counter values; without the hook accounts they fail cleanly |
 | Long stress run | 43,139 trades, 12,814 of them taxed buys, without a single broken invariant |
 | Mutation test | 78 of 79 mutants caught (84 found, 5 unviable). Because of the one survivor, `cargo mutants` exits with code 2 |
-| `app` (`npm test`) | 78 tests: the client and the pool's maths against the Rust vectors, the launch form and transactions, the API parser, pool verification and reads as of a slot, the per-trade tax walk, quotes, trade transactions and the check before a trade is sent, a creator's pools and the claim, the routes, the response headers, the page views, and display helpers. The devnet tests are skipped without `DEVNET_E2E` |
+| `app` (`npm test`) | 90 tests: the client and the pool's maths against the Rust vectors, the launch form and transactions (also when part of the pool's setup already exists), the API parser, pool verification and reads as of a slot, the per-trade tax walk, quotes, trade transactions and the check before a trade is sent, a creator's pools and the claim, the routes, the response headers and the policy's hosts, the page views with hostile token text and image links, and display helpers. The browser and devnet tests are skipped without `BROWSER_E2E` or `DEVNET_E2E` |
+| `app` (`npm run test:browser`) | 9 tests in about 6 s: the launch list with hostile markets and metadata, a pool against another token by its address, a buy, simulations that must stop a buy, a declined request, a sell, a claim, a launch whose pool a stranger created first, and framing. Each also checks that the page stayed inside its Content-Security-Policy and asked only its own hosts |
 | `app/test/devnet.e2e.test.ts` | 1 test, about 106 s on devnet: a launch, a sniper buy and a buy after the window, each followed by the tax check against the pool, then the creator's claim (passed on 11 November, see Devnet) |
+| `app/test/devnet.e2e.test.ts`, second test | A launch whose pool and one fee account a stranger created between the two transactions (site review W2), about 0.08 devnet SOL |
+| `app/test/devnet.browser.e2e.test.ts` | 1 test: a launch, a sniper buy, a sell and a claim through the pages in Chromium, with the stand-in wallet signing in Node.js |
 | `app/test/devnet.market.e2e.test.ts` | 1 read-only test, about 1 s, plus a simulated buy with `DEVNET_E2E_KEYPAIR`: every devnet market verifies and every listed trade gets an exact tax |
 
 The one surviving mutant is equivalent to the original code: the filter `*reserve > 0` in `Pricing::settle` can never trigger, because `check_liquidity` and the formulas already rule that case out.
@@ -140,7 +169,7 @@ The one surviving mutant is equivalent to the original code: the filter `*reserv
 13. **The Solana CLI needs a keypair file** (a JSON array of 64 bytes). A wallet that exists only as a private key, or only in a wallet app, must first be turned into one, locally: from the seed phrase with `solana-keygen recover 'prompt://?key=0/0'`, or from the private key through a hidden prompt. Never paste a key or seed phrase into a chat. The 12 words the CLI prints during a deploy belong to the temporary buffer account, not to the wallet.
 14. **The TypeScript client mirrors the Rust client.** After changing `crates/sniper-tax-client` or a layout in the program, regenerate `app/test/vectors.json` (`cd app && npm run vectors`) and make the TypeScript match. CI regenerates the vectors and fails if the committed file differs.
 15. **The site's cost preview must stay exact.** `app/src/launch/run.ts` refuses to send a transaction that would spend more than its share of `launchCosts` (`chain.ts`). If a launch starts creating another account (a change in the program or the router), add it to `launchCosts` and `SPACE`, or every launch from the site stops before the wallet is asked.
-16. **The Content Security Policy is in two places:** `app/index.html` (a meta tag, for any host) and `app/public/_headers` (the header Cloudflare sends, with `frame-ancestors 'none'` added, which only works as a header). `test/headers.test.ts` fails if they differ. `connect-src` lists every host the page talks to; a new RPC or API host goes in both, or the browser blocks it. Only the dev server allows inline styles (`vite.config.ts`).
+16. **The Content Security Policy is in three places:** `app/index.html` (a meta tag, for any host), `app/public/_headers` (the header Cloudflare sends, with `frame-ancestors 'none'` added, which only works as a header) and the list of hosts in `test/headers.test.ts`. The test fails if they differ. `connect-src` lists every host the page talks to: the RPC over https and Pipeline's API. A new host, or WebSocket subscriptions (`wss://`), go in all three, or the browser blocks them. Only the dev server allows inline styles (`vite.config.ts`).
 17. **A launch is two transactions.** If the pool transaction fails or the creator declines it, the token already exists, with its whole supply in the creator's wallet. The page then offers to create the pool for that token (`createPool`), with the same form: the pool's address depends on the creator and the tax schedule, and its tokens on the creator's share.
 18. **The program keeps no per-trade record of tax.** `app/src/market/history.ts` works it out by walking back from the pool's reserves through Pipeline's trade list. If the walk fails, the API is usually behind the chain; the page then marks rates as estimates (≈) from the block time, which can be a second off the program's clock.
 19. **Custom error codes are ambiguous.** The router's `InsufficientOutput` and our `NotUpgradeAuthority` are both 6021, so the site recognises slippage by the log line, not the number. After serialisation the RPC reports codes as strings (`{"Custom":"1"}`).
@@ -148,6 +177,12 @@ The one surviving mutant is equivalent to the original code: the filter `*reserv
 21. **The public devnet RPC is several nodes, a few slots apart.** Right after a trade, a plain read can come from a node that hasn't seen it: on 11 November the token page quoted a sell from the reserves before the visitor's own buy. Read as of the trade's slot instead: `runTrade` returns it, and `readVerifiedPool(rpc, pool, slot)` passes it as `minContextSlot` and asks again while the node is behind. The devnet tests read balances the same way.
 22. **The public devnet RPC rate-limits bursts** (HTTP 429), for example right after a launch. The devnet tests use `patientRpc()` from `test/helpers.ts`, which waits and retries. The site doesn't retry: its pages keep their last data and poll again.
 23. **The creator dashboard needs `getProgramAccounts` with filters.** The public devnet RPC allows it; some mainnet RPC providers restrict or charge extra for it. Check that before choosing a mainnet RPC, or the dashboard stays empty.
+24. **The site shows only pools against SOL** (`isSolPool`, site review W1). Every figure on the pages is in SOL, so a pool against another token is left out of the list and the dashboard, and its page says so. Supporting another quote token means showing its amounts in that token everywhere first.
+25. **Token names, symbols and image links pass through `tokenView`** (`app/src/market/view.ts`): `displayText` and `imageUrl` clean them. Show a token's text only through it, never straight from the mint or the API.
+26. **The pool transaction is built from what exists on the chain** (`readPoolSetup`, site review W2). Anyone can send `create_market` or a fee account for a creator's pool first; the transaction then leaves those out. `launchCosts` stays the upper bound, so the spend check still passes.
+27. **Dependencies don't run install scripts** (`app/.npmrc`). A new dependency that needs one (a native build, a browser download) won't work until it is set up by hand; `playwright-core` deliberately downloads nothing.
+28. **Playwright sends `localhost` through a proxy too.** With `HTTPS_PROXY` set (as in the cloud sessions), `launchBrowser({ network: true })` switches that off; without it the page never loads in the devnet browser test.
+29. **The wallet is asked a moment before the page says "Simulated".** The simulation is finished by then (the tests check the order of the RPC calls), but React draws the new text a few milliseconds later. A test that reads the page's text at the instant of the request sees "Simulating…"; wait for the text instead, as `test/browser.e2e.test.ts` does.
 
 ## Hosting
 
@@ -157,7 +192,8 @@ GitHub Pages can't send headers, so no `frame-ancestors`; Vercel's free plan is 
 non-commercial use only.
 
 - `app/public/_headers`: the Content Security Policy with `frame-ancestors 'none'`,
-  `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy: no-referrer`, a
+  `X-Frame-Options: DENY`, `Strict-Transport-Security` for a year (since the site review),
+  `nosniff`, `Referrer-Policy: no-referrer`, a
   `Cross-Origin-Opener-Policy` that still lets wallets open popups, a `Permissions-Policy`
   without camera, microphone, location or payments, and a year's cache for `/assets/*`. Vite copies
   it into `dist/`; Cloudflare doesn't serve it as a file. USB, HID and serial are deliberately not
@@ -366,7 +402,14 @@ In addition, the unchanged source (commit `8bb831b`) built exactly `222ee769…`
 
 ## Open items
 
-1. **Launch site:** the plan in [`LAUNCH-SITE.md`](LAUNCH-SITE.md) is approved (the name and domain come later). Milestones 1 (the TypeScript client), 2 (the launch page), 3 (the launch list and token page, with trading) and 4 (the creator dashboard, with claims) are done and proven on devnet. Milestone 5 is under way: the site is live on devnet at <https://sniper-tax-launch-devnet.majoco21.workers.dev> (S9, see "Hosting"); the security review of the site (how the Security-Agent repo does it is open) and the name and domain (S7) are still to decide. The site doesn't offer `sweep_protocol_fees` yet. The throwaway keys are empty (their SOL went back to the devnet wallet) and lived only in the cloud session's scratchpad, so a new devnet run needs a new key.
+1. **Launch site:** the plan in [`LAUNCH-SITE.md`](LAUNCH-SITE.md) is approved (the name and domain come later). Milestones 1 (the TypeScript client), 2 (the launch page), 3 (the launch list and token page, with trading) and 4 (the creator dashboard, with claims) are done and proven on devnet. Milestone 5 is under way: the site is live on devnet at <https://sniper-tax-launch-devnet.majoco21.workers.dev> (S9, see "Hosting") and has its self-review ([`SITE-SECURITY-REVIEW.md`](SITE-SECURITY-REVIEW.md)); the name and domain (S7) and the review by the Security-Agent repo are still open. The site doesn't offer `sweep_protocol_fees` yet. Throwaway keys live only in a cloud session's scratchpad, so a new devnet run needs a new key.
+   - **The owner's decisions from the site review** (details and options in the review):
+     - D1, token images: an image proxy on our own domain before mainnet (W4);
+     - D2, the deploy path: protect `main`, make it the default branch and use two-factor sign-in now; pin wrangler in the lockfile and deploy reviewed tags only before mainnet (W9);
+     - D3, the site's address: never change the workers.dev name; a domain of our own before mainnet (W10);
+     - D4, copied tokens: a line on the token page that names are not unique (W11);
+     - D5, upgrades: pin both programs' deploy slots and stop trading when one changes, before mainnet (W12).
+   - **After merging the review's branch:** check the live site once (`curl -sI <url> | grep -i strict-transport`, and the launch list and a token page in a browser without a console error), since the policy no longer allows `wss://`.
 2. **Optional:** run `demo` on devnet (about 0.2 SOL) to see a full launch on the new version.
 3. **Phase 6:** the self-review is in [`SECURITY-REVIEW.md`](SECURITY-REVIEW.md). H1, H2, L1, L2, I1 and I2 are fixed. Still open: M1 and M2 (operational), L3 (display extensions) and the residual risk of a hook on the quote mint. After that, an external audit.
 4. **Before mainnet:**
