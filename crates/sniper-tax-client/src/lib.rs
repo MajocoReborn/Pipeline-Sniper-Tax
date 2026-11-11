@@ -53,14 +53,14 @@ pub struct ConfigUpdate {
     pub launch_fee_lamports: u64,
 }
 
-#[derive(BorshDeserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(BorshSerialize, BorshDeserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PoolStatus {
     Pending,
     Live,
 }
 
 /// A launch pool, as stored on-chain.
-#[derive(BorshDeserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(BorshSerialize, BorshDeserialize, Clone, Debug, PartialEq, Eq)]
 pub struct LaunchPool {
     pub version: u8,
     pub status: PoolStatus,
@@ -92,7 +92,7 @@ impl LaunchPool {
 }
 
 /// The protocol config, as stored on-chain.
-#[derive(BorshDeserialize, Clone, Debug, PartialEq, Eq)]
+#[derive(BorshSerialize, BorshDeserialize, Clone, Debug, PartialEq, Eq)]
 pub struct ProtocolConfig {
     pub admin: Pubkey,
     pub treasury: Pubkey,
