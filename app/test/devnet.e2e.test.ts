@@ -31,11 +31,27 @@ import { getTransferSolInstruction } from '@solana-program/system';
 import { fetchMint } from '@solana-program/token-2022';
 import { describe, expect, it } from 'vitest';
 
-import { poolSchedule, splitGross, splitTax, taxBpsAt, type Side } from '../src/client/index.js';
-import { SIGNATURE_FEE, balance, confirm, launchCosts, readConfig, type Rpc } from '../src/launch/chain.js';
+import {
+    createMarketIx,
+    feeAccountIxs,
+    poolSchedule,
+    splitGross,
+    splitTax,
+    taxBpsAt,
+    type Side,
+} from '../src/client/index.js';
+import {
+    SIGNATURE_FEE,
+    balance,
+    confirm,
+    launchCosts,
+    readConfig,
+    readPoolSetup,
+    type Rpc,
+} from '../src/launch/chain.js';
 import { launchAmounts, type LaunchForm } from '../src/launch/form.js';
-import { runLaunch, type LaunchMessage, type LaunchProgress } from '../src/launch/run.js';
-import { launchMessage } from '../src/launch/transactions.js';
+import { createPool, createToken, runLaunch, type LaunchMessage, type LaunchProgress } from '../src/launch/run.js';
+import { launchMessage, sitePoolKeys } from '../src/launch/transactions.js';
 import { getTrades, type ApiTrade } from '../src/market/api.js';
 import { creatorPools, runClaim } from '../src/market/creator.js';
 import { taxHistory, type Reserves } from '../src/market/history.js';
@@ -359,6 +375,79 @@ describe.skipIf(!process.env.DEVNET_E2E)('a launch from the site on devnet', () 
                 await sendInstructions(rpc, buyer, [
                     getTransferSolInstruction({
                         source: buyer,
+                        destination: creator.address,
+                        amount: left - SIGNATURE_FEE,
+                    }),
+                ]);
+            }
+        },
+    );
+
+    // Site security review W2: `create_market` and the fee accounts need no signature of the
+    // creator's, so anyone who sees a new token can send them first. About 0.08 devnet SOL.
+    it(
+        'launches a pool that a stranger created first, between the two transactions',
+        { timeout: 240_000 },
+        async () => {
+            const rpc = patientRpc();
+            const creator = await fundedCreator(rpc);
+            const stranger = await generateKeyPairSigner();
+            await sendInstructions(rpc, creator, [
+                getTransferSolInstruction({ source: creator, destination: stranger.address, amount: SOL / 50n }),
+            ]);
+            const form: LaunchForm = {
+                name: 'Site E2E Griefed',
+                symbol: 'GRIEFTEST',
+                uri: 'https://raw.githubusercontent.com/MajocoReborn/Pipeline-Sniper-Tax/main/metadata/sniper-tax.devnet.json',
+                preset: 'mild',
+                permanentFeeBps: 0,
+                creatorShareBps: 0,
+                liquidityLamports: SOL / 20n,
+            };
+            const send = (message: LaunchMessage) => sendWithLocalKeys(rpc, message);
+            const config = await readConfig(rpc);
+            const before = await balance(rpc, creator.address);
+            const token = await createToken({ rpc, creator, form, send, config });
+
+            // The stranger pays for the creator's pool and one of its two fee accounts.
+            const keys = await sitePoolKeys(creator.address, token.mint, form);
+            const [tokenFeeAccount] = await feeAccountIxs(keys, stranger.address);
+            await sendInstructions(rpc, stranger, [await createMarketIx(keys, stranger.address), tokenFeeAccount]);
+            const taken = await withRetryWhileBehind(() => readPoolSetup(rpc, keys));
+            expect(taken).toEqual({ market: true, launched: false, tokenFeeAccount: true, quoteFeeAccount: false });
+
+            // The site's pool transaction leaves out what exists, and the creator launches.
+            const progress: LaunchProgress[] = [];
+            const pool = await createPool({
+                rpc,
+                creator,
+                form,
+                mint: token.mint,
+                send,
+                config,
+                onProgress: (p) => progress.push(p),
+            });
+            const launched = await readVerifiedPool(rpc, keys.address);
+            expect(launched?.pool.status).toBe('live');
+            expect(launched?.pool.creator).toBe(creator.address);
+            expect(launched?.pool.reserveQuote).toBe(form.liquidityLamports);
+            // The stranger paid for part of the setup, so the launch cost less than the preview.
+            const spent = before - (await balance(rpc, creator.address));
+            const estimate = await launchCosts(rpc, { creator: creator.address, mint: token.mint, form, config });
+            expect(spent).toBeLessThan(estimate.total + form.liquidityLamports);
+            console.log('launched a pool a stranger created first', {
+                mint: token.mint,
+                pool: keys.address,
+                signatures: { token: token.signature, strangerSetup: 'see the pool account', pool: pool.signature },
+                spentLamports: spent.toString(),
+                previewLamports: (estimate.total + form.liquidityLamports).toString(),
+            });
+
+            const left = await balance(rpc, stranger.address);
+            if (left > SIGNATURE_FEE) {
+                await sendInstructions(rpc, stranger, [
+                    getTransferSolInstruction({
+                        source: stranger,
                         destination: creator.address,
                         amount: left - SIGNATURE_FEE,
                     }),

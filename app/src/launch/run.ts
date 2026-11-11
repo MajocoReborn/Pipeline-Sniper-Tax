@@ -16,6 +16,7 @@ import {
     confirm,
     launchCosts,
     readConfig,
+    readPoolSetup,
     simulate,
     transactionCost,
     type Rpc,
@@ -174,6 +175,11 @@ export async function createToken(
 /**
  * Transaction 2: the pool for `mint`, launched. Keeps the creator's wrapped SOL if they
  * already had an account for it. Run it with the same form as the token.
+ *
+ * Anyone can create a creator's pool or its fee accounts before the creator does (they need no
+ * signature of the creator's), and each of those instructions fails if its account exists. So
+ * the chain is read first and the transaction holds only what is still missing; the launch
+ * itself is always the creator's. The preview stays the upper bound of the cost.
  */
 export async function createPool(
     input: Steps & { form: LaunchForm; mint: Address; config?: ProtocolConfig },
@@ -183,6 +189,10 @@ export async function createPool(
     const config = input.config ?? (await readConfig(rpc));
     const costs = await launchCosts(rpc, { creator: creator.address, mint: input.mint, form, config });
     const keys = await sitePoolKeys(creator.address, input.mint, form);
+    const existing = await readPoolSetup(rpc, keys);
+    if (existing.launched) {
+        throw new LaunchError(`This token already has a live pool with these settings, at ${keys.address}.`);
+    }
     const hadQuoteAccount = await accountExists(rpc, await creatorQuoteAccount(keys));
     const pool = await poolInstructions({
         creator,
@@ -190,6 +200,7 @@ export async function createPool(
         form,
         treasury: config.treasury,
         closeQuoteAccount: !hadQuoteAccount,
+        existing,
     });
     const { value: lifetime } = await rpc.getLatestBlockhash({ commitment: 'confirmed' }).send();
     const message = launchMessage(creator, pool.instructions, lifetime);

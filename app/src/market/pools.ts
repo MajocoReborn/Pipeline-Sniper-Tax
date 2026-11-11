@@ -11,7 +11,14 @@ import {
 import { TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
 import { TOKEN_2022_PROGRAM_ADDRESS } from '@solana-program/token-2022';
 
-import { PROGRAM_ID, decodeLaunchPool, poolKeys, type LaunchPool, type PoolKeys } from '../client/index.js';
+import {
+    NATIVE_MINT,
+    PROGRAM_ID,
+    decodeLaunchPool,
+    poolKeys,
+    type LaunchPool,
+    type PoolKeys,
+} from '../client/index.js';
 import type { Rpc } from '../launch/chain.js';
 import { decodeMint, type MintInspection } from '../vendor/pipeline/index.js';
 
@@ -22,6 +29,15 @@ export type VerifiedPool = {
     /** The launch token, decoded from the chain; `null` if it isn't a readable mint. */
     mint: MintInspection | null;
 };
+
+/**
+ * Whether the pool trades against SOL. The program takes any quote mint, but every figure the
+ * pages show is in SOL, so a pool against another token is left out: its reserves of a
+ * worthless token would otherwise read as a market value in SOL.
+ */
+export function isSolPool(verified: Pick<VerifiedPool, 'keys'>): boolean {
+    return verified.keys.quoteMint === NATIVE_MINT && verified.keys.quoteProgram === TOKEN_PROGRAM_ADDRESS;
+}
 
 const TOKEN_PROGRAMS = [TOKEN_2022_PROGRAM_ADDRESS, TOKEN_PROGRAM_ADDRESS] as const;
 const BATCH = 100;

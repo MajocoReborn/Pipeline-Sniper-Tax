@@ -4,6 +4,7 @@
 import type { Address } from '@solana/kit';
 
 import { MAX_END_BPS, isValidSchedule, type InitParams, type TaxSchedule } from '../client/index.js';
+import { MAX_SHOWN_NAME, displayText } from '../market/view.js';
 
 /** Every launch on the site has a sniper tax (decision S8); the creator picks its strength. */
 export const PRESETS = {
@@ -60,8 +61,9 @@ export function validateForm(form: LaunchForm): string[] {
     if (form.name.length === 0 || utf8Length(form.name) > MAX_NAME_BYTES) {
         errors.push(`The name must be 1 to ${MAX_NAME_BYTES} bytes.`);
     }
-    if (/\p{Cc}/u.test(form.name)) {
-        errors.push('The name may not contain control characters.');
+    // The pages clean every token's name before showing it; a launch must read as it was typed.
+    if (displayText(form.name, MAX_SHOWN_NAME) !== form.name) {
+        errors.push('The name may not contain control or invisible characters, or more than one space in a row.');
     }
     if (!/^[A-Z0-9]{1,10}$/.test(form.symbol) || utf8Length(form.symbol) > MAX_SYMBOL_BYTES) {
         errors.push(`The symbol must be 1 to ${MAX_SYMBOL_BYTES} letters or digits.`);

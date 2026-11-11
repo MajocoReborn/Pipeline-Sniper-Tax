@@ -1,11 +1,25 @@
 // The launch form's rules and the two launch transactions, without a network.
 
-import { address, createNoopSigner, generateKeyPairSigner, getU64Codec, type Instruction } from '@solana/kit';
+import {
+    address,
+    createNoopSigner,
+    generateKeyPairSigner,
+    getBase64Decoder,
+    getU64Codec,
+    type Instruction,
+} from '@solana/kit';
 import { TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
 import { TOKEN_2022_PROGRAM_ADDRESS } from '@solana-program/token-2022';
 import { describe, expect, it } from 'vitest';
 
-import { INSTRUCTION_DISCRIMINATORS, NATIVE_MINT, PROGRAM_ID } from '../src/client/index.js';
+import {
+    ACCOUNT_DISCRIMINATORS,
+    INSTRUCTION_DISCRIMINATORS,
+    NATIVE_MINT,
+    PROGRAM_ID,
+    getLaunchPoolCodec,
+    type LaunchPool,
+} from '../src/client/index.js';
 import {
     MAX_NAME_BYTES,
     MAX_URI_BYTES,
@@ -19,15 +33,19 @@ import {
 } from '../src/launch/form.js';
 import {
     MAX_TRANSACTION_SIZE,
+    NOTHING_SET_UP,
     mintSizes,
     poolInstructions,
     sitePoolKeys,
     tokenInstructions,
     transactionSize,
+    type PoolSetup,
 } from '../src/launch/transactions.js';
-import { launchCosts, transactionCost, type Rpc } from '../src/launch/chain.js';
+import { launchCosts, readPoolSetup, transactionCost, type Rpc } from '../src/launch/chain.js';
 import { explainSimulationError, spendProblem } from '../src/launch/run.js';
-import { PIPELINE_PROGRAM_ADDRESS } from '../src/vendor/pipeline/index.js';
+import { PIPELINE_PROGRAM_ADDRESS, feeAccountPda } from '../src/vendor/pipeline/index.js';
+
+import { poolFromVector, vectors } from './helpers.js';
 
 const creator = createNoopSigner(address('9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin'));
 const treasury = address('CUiq3QQbXMsrgCpiN423zr2NTrdfPRuGUy9EQKQ6CGap');
@@ -62,6 +80,10 @@ describe('the launch form', () => {
             [{ name: 'x'.repeat(MAX_NAME_BYTES + 1) }, 'name'],
             [{ name: 'é'.repeat(MAX_NAME_BYTES / 2 + 1) }, 'name'],
             [{ name: 'bad\u0007name' }, 'control'],
+            // A right-to-left override and a zero-width space: invisible, and they change what is read.
+            [{ name: 'Fair \u202Enekot' }, 'invisible'],
+            [{ name: 'Fa\u200Bir' }, 'invisible'],
+            [{ name: 'Fair  Token' }, 'space'],
             [{ symbol: '' }, 'symbol'],
             [{ symbol: 'ABCDEFGHIJK' }, 'symbol'],
             [{ symbol: 'FA$R' }, 'symbol'],
@@ -180,6 +202,78 @@ describe('the pool transaction', () => {
             const size = transactionSize(creator, instructions);
             expect(size, `pool transaction, close ${closeQuoteAccount}`).toBeLessThanOrEqual(MAX_TRANSACTION_SIZE);
         }
+    });
+
+    it('leaves out the setup someone else already sent, and still launches', async () => {
+        const mint = (await generateKeyPairSigner()).address;
+        const build = (existing: PoolSetup) =>
+            poolInstructions({ creator, mint, form: goodForm, treasury, closeQuoteAccount: true, existing });
+        const router = (instructions: Instruction[]) =>
+            instructions.filter((ix) => ix.programAddress === PIPELINE_PROGRAM_ADDRESS);
+        const all = await build(NOTHING_SET_UP);
+        const [createMarket, tokenFee, quoteFee] = router(all.instructions);
+
+        // A stranger created the market: `create_market` would fail, so it is left out.
+        const marketTaken = await build({ ...NOTHING_SET_UP, market: true });
+        expect(router(marketTaken.instructions)).toEqual([tokenFee, quoteFee]);
+        // One fee account taken: only the other is created.
+        const feeTaken = await build({ ...NOTHING_SET_UP, tokenFeeAccount: true });
+        expect(router(feeTaken.instructions)).toEqual([createMarket, quoteFee]);
+        // Everything taken: wrap, launch and unwrap remain.
+        const allTaken = await build({ market: true, tokenFeeAccount: true, quoteFeeAccount: true });
+        expect(router(allTaken.instructions)).toEqual([]);
+        expect(allTaken.instructions).toHaveLength(5);
+
+        for (const { instructions } of [all, marketTaken, feeTaken, allTaken]) {
+            // Our program's one instruction is always the launch, signed by the creator.
+            const ours = instructions.filter((ix) => ix.programAddress === PROGRAM_ID);
+            expect(ours).toHaveLength(1);
+            expect([...ours[0]!.data!.slice(0, 8)]).toEqual([...INSTRUCTION_DISCRIMINATORS.launch]);
+            expect(ours[0]!.accounts![0]!.address).toBe(creator.address);
+        }
+    });
+
+    it('reads from the chain what of the setup exists', async () => {
+        const mint = (await generateKeyPairSigner()).address;
+        const keys = await sitePoolKeys(creator.address, mint, goodForm);
+        const tokenFee = await feeAccountPda(keys.market, keys.tokenMint, keys.tokenProgram);
+        const poolData = (status: LaunchPool['status']) =>
+            new Uint8Array([
+                ...ACCOUNT_DISCRIMINATORS.LaunchPool,
+                ...getLaunchPoolCodec().encode({ ...poolFromVector(vectors.pools[0]).pool, status }),
+            ]);
+        const chain = (accounts: Map<string, Uint8Array>) =>
+            ({
+                getAccountInfo: (at: string) => ({
+                    send: async () => {
+                        const data = accounts.get(at);
+                        return { value: data ? { data: [getBase64Decoder().decode(data), 'base64'] } : null };
+                    },
+                }),
+            }) as unknown as Rpc;
+
+        expect(await readPoolSetup(chain(new Map()), keys)).toEqual({ ...NOTHING_SET_UP, launched: false });
+        expect(await readPoolSetup(chain(new Map([[keys.address as string, poolData('pending')]])), keys)).toEqual({
+            ...NOTHING_SET_UP,
+            market: true,
+            launched: false,
+        });
+        expect(
+            await readPoolSetup(
+                chain(
+                    new Map([
+                        [keys.address as string, poolData('live')],
+                        [tokenFee as string, new Uint8Array(165)],
+                    ]),
+                ),
+                keys,
+            ),
+        ).toEqual({ market: true, launched: true, tokenFeeAccount: true, quoteFeeAccount: false });
+        // Lamports sent to the pool's address make an account there, but not a pool.
+        expect(await readPoolSetup(chain(new Map([[keys.address as string, new Uint8Array(0)]])), keys)).toEqual({
+            ...NOTHING_SET_UP,
+            launched: false,
+        });
     });
 
     it('deposits the pool share of the supply and the chosen SOL', async () => {

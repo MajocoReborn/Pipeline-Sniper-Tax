@@ -18,10 +18,12 @@ import {
     decodeLaunchPool,
     decodeProtocolConfig,
     type LaunchPool,
+    type PoolKeys,
     type ProtocolConfig,
 } from '../client/index.js';
 import { RPC_URL } from '../config.js';
-import { mintSizes, type launchMessage } from './transactions.js';
+import { feeAccountPda } from '../vendor/pipeline/index.js';
+import { mintSizes, type PoolSetup, type launchMessage } from './transactions.js';
 import type { LaunchForm } from './form.js';
 
 /** A devnet RPC: the site runs on devnet only for now. */
@@ -81,6 +83,19 @@ export async function readConfig(rpc: Rpc): Promise<ProtocolConfig> {
 export async function readPool(rpc: Rpc, address: Address): Promise<LaunchPool | null> {
     const data = await accountData(rpc, address);
     return data ? decodeLaunchPool(data) : null;
+}
+
+/**
+ * What of the pool's setup is already on the chain (`PoolSetup`), and whether the pool was
+ * launched. Normally nothing is; someone can have sent `create_market` or a fee account first.
+ */
+export async function readPoolSetup(rpc: Rpc, keys: PoolKeys): Promise<PoolSetup & { launched: boolean }> {
+    const [pool, tokenFeeAccount, quoteFeeAccount] = await Promise.all([
+        readPool(rpc, keys.address),
+        accountExists(rpc, await feeAccountPda(keys.market, keys.tokenMint, keys.tokenProgram)),
+        accountExists(rpc, await feeAccountPda(keys.market, keys.quoteMint, keys.quoteProgram)),
+    ]);
+    return { market: pool !== null, launched: pool?.status === 'live', tokenFeeAccount, quoteFeeAccount };
 }
 
 async function rent(rpc: Rpc, space: number): Promise<bigint> {

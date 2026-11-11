@@ -1,13 +1,13 @@
 // Every launch Pipeline's API lists for our program, checked on the chain first: a market
-// whose pool doesn't verify is left out. Tax, price and the token's checks come from the
-// chain; the API adds only trades and volume.
+// whose pool doesn't verify, or that trades against another token than SOL, is left out. Tax,
+// price and the token's checks come from the chain; the API adds only trades and volume.
 
 import { useState } from 'react';
 
 import { NATIVE_MINT, currentTaxBps, secondsUntilWindowEnds } from '../client/index.js';
 import { formatAge, formatDuration, formatSignificant, formatSol } from '../launch/units.js';
 import { listMarkets, type ApiMarket, type MarketSort } from '../market/api.js';
-import { readVerifiedPools, type VerifiedPool } from '../market/pools.js';
+import { isSolPool, readVerifiedPools, type VerifiedPool } from '../market/pools.js';
 import { tokenView, trustChecks } from '../market/view.js';
 import { href } from '../route.js';
 import { Loading, Tax, TokenImage } from './common.js';
@@ -32,7 +32,7 @@ async function loadRows(sort: MarketSort): Promise<{ rows: Row[]; hidden: number
     const rows: Row[] = [];
     for (const market of markets) {
         const verified = pools.get(market.pool);
-        if (verified && verified.keys.market === market.address) {
+        if (verified && verified.keys.market === market.address && isSolPool(verified)) {
             rows.push({ market, verified });
         }
     }
@@ -51,9 +51,11 @@ function LaunchRow({ row, now }: { row: Row; now: bigint }) {
             <a className="launch-row" href={href.pool(verified.address)}>
                 <TokenImage uri={view.uri} symbol={view.symbol} />
                 <span className="launch-name">
-                    <strong>{view.name}</strong>
+                    <strong>
+                        <bdi>{view.name}</bdi>
+                    </strong>
                     <span className="muted">
-                        {view.symbol} · {formatAge(Number(now) - market.createdAt)} old
+                        <bdi>{view.symbol}</bdi> · {formatAge(Number(now) - market.createdAt)} old
                     </span>
                 </span>
                 <span className="launch-tax">
@@ -127,7 +129,8 @@ export function LaunchList() {
             ) : null}
             {data && data.hidden > 0 ? (
                 <p className="muted">
-                    {data.hidden} market{data.hidden === 1 ? '' : 's'} left out: the pool did not verify on the chain.
+                    {data.hidden} market{data.hidden === 1 ? '' : 's'} left out: the pool did not verify on the chain,
+                    or trades against another token than SOL.
                 </p>
             ) : null}
             <p className="muted">

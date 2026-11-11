@@ -12,7 +12,7 @@ import { CHAIN, explorerUrl } from '../config.js';
 import { LaunchError } from '../launch/run.js';
 import { formatAge, formatBps, formatDuration, formatSol } from '../launch/units.js';
 import { claimProblem, creatorPools, runClaim, type ClaimProgress } from '../market/creator.js';
-import type { VerifiedPool } from '../market/pools.js';
+import { isSolPool, type VerifiedPool } from '../market/pools.js';
 import { tokenView } from '../market/view.js';
 import { href } from '../route.js';
 import { ExternalLink, Loading, Tax, TokenImage } from './common.js';
@@ -124,10 +124,12 @@ function CreatorRow({
             <TokenImage uri={view.uri} symbol={view.symbol} />
             <span className="launch-name">
                 <a href={href.pool(verified.address)}>
-                    <strong>{view.name}</strong>
+                    <strong>
+                        <bdi>{view.name}</bdi>
+                    </strong>
                 </a>
                 <span className="muted">
-                    {view.symbol}
+                    <bdi>{view.symbol}</bdi>
                     {pool.status === 'live'
                         ? ` · launched ${formatAge(Number(now - pool.launchTs))} ago`
                         : ' · not live'}
@@ -163,13 +165,16 @@ export function CreatorPage({ account }: { account: UiWalletAccount }) {
         }
         pools.reload();
     };
-    const total = pools.data?.reduce((sum, v) => sum + v.pool.accruedTaxQuote, 0n) ?? 0n;
+    // The site's figures are in SOL, so pools against another token are counted, not shown.
+    const shown = pools.data?.filter(isSolPool);
+    const leftOut = (pools.data?.length ?? 0) - (shown?.length ?? 0);
+    const total = shown?.reduce((sum, v) => sum + v.pool.accruedTaxQuote, 0n) ?? 0n;
 
     return (
         <section className="card">
             <div className="list-head">
                 <h2>Your launches</h2>
-                {pools.data && pools.data.length > 0 ? (
+                {shown && shown.length > 0 ? (
                     <span>
                         <span className="muted">Unclaimed in total </span>
                         <strong>{formatSol(total, 9)} SOL</strong>
@@ -183,10 +188,10 @@ export function CreatorPage({ account }: { account: UiWalletAccount }) {
             </p>
             {pools.error && !pools.data ? <p className="error">Could not read your launches: {pools.error}</p> : null}
             {!pools.data && !pools.error ? <Loading what="your launches from the chain" /> : null}
-            {pools.data ? (
-                pools.data.length > 0 ? (
+            {shown ? (
+                shown.length > 0 ? (
                     <ul className="launches">
-                        {pools.data.map((verified) => (
+                        {shown.map((verified) => (
                             <CreatorRow
                                 key={verified.address}
                                 verified={verified}
@@ -201,6 +206,12 @@ export function CreatorPage({ account }: { account: UiWalletAccount }) {
                         This wallet hasn't launched anything yet. <a href={href.launch}>Launch a token</a>
                     </p>
                 )
+            ) : null}
+            {leftOut > 0 ? (
+                <p className="muted">
+                    {leftOut} pool{leftOut === 1 ? '' : 's'} of yours left out: they trade against another token than
+                    SOL, which this site doesn't show or claim.
+                </p>
             ) : null}
         </section>
     );
