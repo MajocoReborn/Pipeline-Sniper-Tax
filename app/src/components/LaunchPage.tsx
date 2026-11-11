@@ -2,13 +2,7 @@
 // result. Everything the creator types is shown as text only; links are built from addresses.
 
 import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from 'react';
-import {
-    getBase58Decoder,
-    signAndSendTransactionMessageWithSigners,
-    signature as toSignature,
-    type Address,
-    type Signature,
-} from '@solana/kit';
+import type { Address, Signature } from '@solana/kit';
 import { useWalletAccountTransactionSendingSigner } from '@solana/react';
 import type { UiWalletAccount } from '@wallet-standard/react';
 
@@ -36,8 +30,10 @@ import {
     type LaunchForm,
     type PresetId,
 } from '../launch/form.js';
-import { LaunchError, createPool, runLaunch, type LaunchProgress, type Sender } from '../launch/run.js';
-import { formatBps, formatSol, parseSol, shortAddress } from '../launch/units.js';
+import { LaunchError, createPool, runLaunch, type LaunchProgress } from '../launch/run.js';
+import { formatBps, formatDuration, formatSol, parseSol, shortAddress } from '../launch/units.js';
+import { href } from '../route.js';
+import { sendWithWallet as send } from './hooks.js';
 
 const PERMANENT_FEES_BPS = [0, 50, 100, 200, 300, 500] as const;
 const CREATOR_SHARES_BPS = [0, 500, 1_000, 1_500, 2_000] as const;
@@ -101,13 +97,6 @@ function failure(
 }
 
 const nowSeconds = () => BigInt(Math.floor(Date.now() / 1000));
-
-function formatDuration(seconds: number): string {
-    if (seconds < 60) {
-        return `${seconds}s`;
-    }
-    return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
-}
 
 /** Whole tokens: every share on the site leaves a whole number of tokens. */
 function formatTokens(amount: bigint): string {
@@ -479,9 +468,14 @@ function Result({ rpc, form, done, onAgain }: { rpc: Rpc; form: LaunchForm; done
                 Anyone can trade it now through the Pipeline router. Your tax builds up in the pool; claiming it from
                 the site comes next.
             </p>
-            <button type="button" className="secondary" onClick={onAgain}>
-                Launch another token
-            </button>
+            <div className="actions">
+                <a className="button primary" href={href.pool(done.keys.address)}>
+                    Open the token page
+                </a>
+                <button type="button" className="secondary" onClick={onAgain}>
+                    Launch another token
+                </button>
+            </div>
         </section>
     );
 }
@@ -503,12 +497,6 @@ export function LaunchPage({ account }: { account: UiWalletAccount }) {
     const form = useMemo(() => toForm(draft), [draft]);
     const errors = useMemo(() => formErrors(draft, form), [draft, form]);
     const shown = phase.kind === 'editing' ? form : phase.form;
-
-    const send: Sender = useCallback(
-        async (message) =>
-            toSignature(getBase58Decoder().decode(await signAndSendTransactionMessageWithSigners(message))),
-        [],
-    );
 
     const refreshBalance = useCallback(() => {
         balance(rpc, signer.address).then(setLamports, () => setLamports(null));

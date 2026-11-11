@@ -90,7 +90,7 @@ cargo mutants -p sniper-tax-math
 | `transfer_hook` | 1 test, with the hook on the quote mint. Every path in which the program makes transfers: `launch`, refund, the output of a sell, `claim_tax` and `sweep_protocol_fees`. With exact counter values; without the hook accounts they fail cleanly |
 | Long stress run | 43,139 trades, 12,814 of them taxed buys, without a single broken invariant |
 | Mutation test | 78 of 79 mutants caught (84 found, 5 unviable). Because of the one survivor, `cargo mutants` exits with code 2 |
-| `app` (`npm test`) | 37 tests: the TypeScript client against the Rust client's vectors (21), the launch form, both transactions and the cost preview (12), SOL amounts and display (4). The devnet test is skipped without `DEVNET_E2E` |
+| `app` (`npm test`) | 64 tests: the client and the pool's maths against the Rust vectors, the launch form and transactions, the API parser, pool verification, the per-trade tax walk, quotes and trade transactions, the page views, and display helpers. The devnet tests are skipped without `DEVNET_E2E` |
 | `app/test/devnet.e2e.test.ts` | 1 test, about 7 s on devnet: a launch and a taxed buy through the router (passed on 10 November, see Devnet) |
 
 The one surviving mutant is equivalent to the original code: the filter `*reserve > 0` in `Pricing::settle` can never trigger, because `check_liquidity` and the formulas already rule that case out.
@@ -119,6 +119,9 @@ The one surviving mutant is equivalent to the original code: the filter `*reserv
 15. **The site's cost preview must stay exact.** `app/src/launch/run.ts` refuses to send a transaction that would spend more than its share of `launchCosts` (`chain.ts`). If a launch starts creating another account (a change in the program or the router), add it to `launchCosts` and `SPACE`, or every launch from the site stops before the wallet is asked.
 16. **The Content Security Policy is in `app/index.html`.** `connect-src` lists every host the page talks to; a new RPC or API host goes there, or the browser blocks it. Only the dev server allows inline styles (`vite.config.ts`). `frame-ancestors` only works as an HTTP header, so the host must send `frame-ancestors 'none'`.
 17. **A launch is two transactions.** If the pool transaction fails or the creator declines it, the token already exists, with its whole supply in the creator's wallet. The page then offers to create the pool for that token (`createPool`), with the same form: the pool's address depends on the creator and the tax schedule, and its tokens on the creator's share.
+18. **The program keeps no per-trade record of tax.** `app/src/market/history.ts` works it out by walking back from the pool's reserves through Pipeline's trade list. If the walk fails, the API is usually behind the chain; the page then marks rates as estimates (≈) from the block time, which can be a second off the program's clock.
+19. **Custom error codes are ambiguous.** The router's `InsufficientOutput` and our `NotUpgradeAuthority` are both 6021, so the site recognises slippage by the log line, not the number. After serialisation the RPC reports codes as strings (`{"Custom":"1"}`).
+20. **Pipeline's candles include the tax.** They price each trade by what the trader paid, so a sniper buy looks like a spike. The site charts the market value from the pool's reserves instead.
 
 ## Devnet
 
@@ -258,7 +261,7 @@ In addition, the unchanged source (commit `8bb831b`) built exactly `222ee769…`
 
 ## Open items
 
-1. **Launch site:** the plan in [`LAUNCH-SITE.md`](LAUNCH-SITE.md) is approved (the name and domain come later). Milestones 1 (the TypeScript client) and 2 (the launch page, proven on devnet) are done. Next is milestone 3: the launch list and the token page, with trading.
+1. **Launch site:** the plan in [`LAUNCH-SITE.md`](LAUNCH-SITE.md) is approved (the name and domain come later). Milestones 1 (the TypeScript client) and 2 (the launch page, proven on devnet) are done. Milestone 3 (the launch list and token page, with trading) is built and tested; its devnet proof is next, see "Left to do" in `LAUNCH-SITE.md`.
 2. **Optional:** run `demo` on devnet (about 0.2 SOL) to see a full launch on the new version.
 3. **Phase 6:** the self-review is in [`SECURITY-REVIEW.md`](SECURITY-REVIEW.md). H1, H2, L1, L2, I1 and I2 are fixed. Still open: M1 and M2 (operational), L3 (display extensions) and the residual risk of a hook on the quote mint. After that, an external audit.
 4. **Before mainnet:**

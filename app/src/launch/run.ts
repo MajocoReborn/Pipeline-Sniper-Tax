@@ -70,16 +70,22 @@ function checkedForm(form: LaunchForm): LaunchForm {
 }
 
 /** Plain words for the simulation errors a creator is likely to meet; `null` for the rest. */
-export function explainSimulationError(error: string): string | null {
+export function explainSimulationError(error: string, logs: readonly string[] = []): string | null {
     if (error === '"AccountNotFound"') {
         return 'your wallet has no SOL on this cluster yet';
     }
     if (error.includes('InsufficientFunds')) {
         return 'not enough SOL';
     }
+    // Custom codes come as numbers, or as strings once the RPC's bigints are serialized.
+    const custom = /"Custom":"?(\d+)"?\}/.exec(error)?.[1];
     // Error 1 of the System and Token programs: a transfer of more than the account holds.
-    if (/"Custom":1\}/.test(error)) {
+    if (custom === '1') {
         return 'not enough SOL or tokens for a transfer';
+    }
+    // The router's `InsufficientOutput`. Its number, 6021, is also one of ours, so go by the log.
+    if (logs.some((line) => line.includes('Error Code: InsufficientOutput'))) {
+        return 'the price moved past your slippage';
     }
     return null;
 }
@@ -123,7 +129,7 @@ async function simulateSendConfirm(
     const lamportsSpent = simulation.lamportsAfter === null ? null : before - simulation.lamportsAfter;
     onProgress({ step: 'simulated', transaction, simulation, lamportsSpent });
     if (!simulation.ok) {
-        const reason = explainSimulationError(simulation.error ?? '');
+        const reason = explainSimulationError(simulation.error ?? '', simulation.logs);
         throw new LaunchError(
             `The ${transaction} transaction would fail${reason ? `: ${reason}` : ''} (${simulation.error}). Nothing was sent.`,
             simulation.logs,

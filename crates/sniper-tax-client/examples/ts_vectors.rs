@@ -10,7 +10,10 @@
 
 use serde_json::{json, Value};
 use sniper_tax_client::*;
-use sniper_tax_math::{applicable_tax_bps, TaxSchedule};
+use sniper_tax_math::{
+    applicable_tax_bps, gross_for_effective, in_given_out, out_given_in, split_gross, split_tax,
+    Pricing, TaxSchedule,
+};
 
 fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
@@ -293,6 +296,117 @@ fn tax() -> Value {
     json!({ "rates": rates, "validity": validity })
 }
 
+/// The pool's trade maths: the tax split, constant-product pricing and full quotes, over
+/// amounts and rates that include the edges (zero, one, u64::MAX, rates of 100% and above).
+fn pricing() -> Value {
+    let amounts = [
+        0u64,
+        1,
+        7,
+        9_999,
+        10_000,
+        1_000_000_000,
+        123_456_789_012,
+        u64::MAX / 2,
+        u64::MAX,
+    ];
+    let rates = [0u16, 1, 300, 5_000, 9_570, 9_900, 9_999, 10_000, 12_000];
+    let opt = |v: Option<u64>| v.map_or(Value::Null, |v| json!(v.to_string()));
+
+    let mut splits = Vec::new();
+    let mut grosses = Vec::new();
+    let mut shares = Vec::new();
+    for &amount in &amounts {
+        for &bps in &rates {
+            let split = split_gross(amount, bps);
+            splits.push(json!({
+                "gross": amount.to_string(), "bps": bps,
+                "effective": split.effective.to_string(), "tax": split.tax.to_string(),
+            }));
+            grosses.push(json!({
+                "effective": amount.to_string(), "bps": bps,
+                "gross": opt(gross_for_effective(amount, bps)),
+            }));
+            let s = split_tax(amount, bps);
+            shares.push(json!({
+                "tax": amount.to_string(), "share_bps": bps,
+                "creator": s.creator.to_string(), "protocol": s.protocol.to_string(),
+            }));
+        }
+    }
+
+    let reserves = [
+        (100_000_000u64, 900_000_000_000_000u64),
+        (5_000_000_000, 1_000_000_000_000),
+        (1, 1),
+        (u64::MAX - 1, 5_000_000_000),
+        (0, 1_000_000),
+    ];
+    let mut swaps = Vec::new();
+    for &(reserve_in, reserve_out) in &reserves {
+        for &amount in &[
+            0u64,
+            1,
+            10_000_000,
+            1_000_000_000,
+            1_000_000_000_000_000,
+            u64::MAX,
+        ] {
+            swaps.push(json!({
+                "reserve_in": reserve_in.to_string(), "reserve_out": reserve_out.to_string(),
+                "amount": amount.to_string(),
+                "out_given_in": out_given_in(reserve_in, reserve_out, amount).to_string(),
+                "in_given_out": opt(in_given_out(reserve_in, reserve_out, amount)),
+            }));
+        }
+    }
+
+    let mut quotes = Vec::new();
+    for &(reserve_in, reserve_out) in &reserves {
+        for &amount in &[1u64, 10_000_000, 1_000_000_000, 1_000_000_000_000_000] {
+            for &tax_bps in &[0u16, 9_680, 9_900] {
+                for &protocol_share_bps in &[1_000u16, 2_000] {
+                    let pricing = Pricing {
+                        reserve_in,
+                        reserve_out,
+                        tax_bps,
+                        protocol_share_bps,
+                    };
+                    for (mode, result) in [
+                        ("exact_in", pricing.quote_exact_in(amount)),
+                        ("exact_out", pricing.quote_exact_out(amount)),
+                    ] {
+                        let result = match result {
+                            Ok(q) => json!({
+                                "amount_in": q.amount_in.to_string(),
+                                "amount_out": q.amount_out.to_string(),
+                                "effective_in": q.effective_in.to_string(),
+                                "creator_tax": q.creator_tax.to_string(),
+                                "protocol_fee": q.protocol_fee.to_string(),
+                                "new_reserve_in": q.new_reserve_in.to_string(),
+                                "new_reserve_out": q.new_reserve_out.to_string(),
+                            }),
+                            Err(e) => json!({ "error": format!("{e:?}") }),
+                        };
+                        quotes.push(json!({
+                            "reserve_in": reserve_in.to_string(), "reserve_out": reserve_out.to_string(),
+                            "tax_bps": tax_bps, "protocol_share_bps": protocol_share_bps,
+                            "mode": mode, "amount": amount.to_string(), "result": result,
+                        }));
+                    }
+                }
+            }
+        }
+    }
+    json!({
+        "split_gross": splits,
+        "gross_for_effective": grosses,
+        "split_tax": shares,
+        "swaps": swaps,
+        "quotes": quotes,
+    })
+}
+
 fn main() {
     let creator_wsol = InitParams {
         creator: key(1),
@@ -339,6 +453,7 @@ fn main() {
         ],
         "accounts": accounts(),
         "tax": tax(),
+        "pricing": pricing(),
     });
     println!("{}", serde_json::to_string_pretty(&vectors).unwrap());
 }

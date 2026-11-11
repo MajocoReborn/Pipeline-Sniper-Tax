@@ -401,3 +401,354 @@ code {
 a {
     color: var(--accent);
 }
+
+/* Navigation */
+
+a.home {
+    color: inherit;
+    text-decoration: none;
+}
+
+.nav {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.nav a {
+    color: var(--muted);
+    text-decoration: none;
+    font-weight: 600;
+    padding: 4px 0;
+    border-bottom: 2px solid transparent;
+}
+
+.nav a[aria-current='page'] {
+    color: var(--text);
+    border-bottom-color: var(--accent);
+}
+
+a.button {
+    display: inline-block;
+    text-decoration: none;
+    border-radius: 8px;
+}
+
+a.button.primary {
+    background: var(--accent);
+    color: var(--accent-text);
+    font-weight: 600;
+    padding: 10px 20px;
+}
+
+/* Tabs */
+
+.tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.tab {
+    padding: 6px 12px;
+    font-size: 0.9rem;
+}
+
+.tab.selected {
+    border-color: var(--accent);
+    box-shadow: inset 0 0 0 1px var(--accent);
+    font-weight: 600;
+}
+
+.list-head,
+.chart-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.list-head h2,
+.chart-head h3 {
+    margin: 0;
+}
+
+/* Launch list */
+
+.launches {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 8px;
+}
+
+.launch-row {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1.2fr) minmax(0, 1.2fr);
+    gap: 12px;
+    align-items: center;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: inherit;
+    text-decoration: none;
+}
+
+.launch-row:hover {
+    border-color: var(--accent);
+}
+
+.launch-name,
+.launch-tax,
+.launch-stat {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    font-size: 0.92rem;
+}
+
+.launch-name strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.launch-tax .tax {
+    font-size: 1.1rem;
+}
+
+@media (max-width: 860px) {
+    .launch-row {
+        grid-template-columns: 40px minmax(0, 1fr) auto;
+    }
+
+    .launch-row .launch-stat,
+    .launch-row .checks {
+        grid-column: 2 / -1;
+    }
+}
+
+.token-image {
+    border-radius: 50%;
+    object-fit: cover;
+    flex: none;
+}
+
+.token-image.placeholder {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--code-bg);
+    color: var(--muted);
+    font-weight: 700;
+}
+
+.checks {
+    font-size: 0.85rem;
+}
+
+.checks.ok,
+.good {
+    color: var(--good);
+}
+
+.checks.warn {
+    color: var(--warn);
+}
+
+/* Tax */
+
+.tax {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.tax.high {
+    color: var(--bad);
+}
+
+.tax.some {
+    color: var(--warn);
+}
+
+.tax.none {
+    color: var(--good);
+}
+
+/* Token page */
+
+.token-page {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    gap: 20px;
+    align-items: start;
+}
+
+.token-main,
+.token-side {
+    display: grid;
+    gap: 20px;
+    min-width: 0;
+}
+
+@media (max-width: 960px) {
+    .token-page {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.token-head {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.token-head h2 {
+    margin: 0;
+}
+
+.token-head p {
+    margin: 4px 0 0;
+}
+
+.token-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+@media (max-width: 560px) {
+    .token-stats {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 0.88rem;
+    min-width: 0;
+}
+
+.stat .big {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+/* Chart */
+
+.chart svg {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.chart-axis {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 0.8rem;
+}
+
+.chart-line {
+    fill: none;
+    stroke: var(--accent);
+    stroke-width: 2;
+}
+
+.chart-dot {
+    fill: var(--card);
+    stroke: var(--accent);
+    stroke-width: 2;
+}
+
+/* Trades */
+
+.table-scroll {
+    overflow-x: auto;
+}
+
+table.trades th,
+table.trades td {
+    text-align: left;
+    white-space: nowrap;
+    padding-right: 12px;
+}
+
+table.trades td:last-child,
+table.trades th:last-child {
+    text-align: right;
+}
+
+td.buy {
+    color: var(--good);
+    font-weight: 600;
+}
+
+td.sell {
+    color: var(--bad);
+    font-weight: 600;
+}
+
+.badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 0 6px;
+    border-radius: 6px;
+    background: var(--code-bg);
+    color: var(--muted);
+    font-size: 0.75rem;
+}
+
+/* Trade panel */
+
+.trade .tabs {
+    margin-bottom: 14px;
+}
+
+.trade .tab {
+    flex: 1;
+}
+
+.input-row {
+    display: flex;
+    gap: 8px;
+}
+
+.trade button.primary {
+    width: 100%;
+    margin-top: 4px;
+}
+
+/* Transparency */
+
+.checks-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 14px;
+    display: grid;
+    gap: 6px;
+    font-size: 0.9rem;
+}
+
+.checks-list .ok strong {
+    color: var(--good);
+}
+
+.checks-list .warn strong {
+    color: var(--warn);
+}
+
+.transparency .facts {
+    font-size: 0.9rem;
+}

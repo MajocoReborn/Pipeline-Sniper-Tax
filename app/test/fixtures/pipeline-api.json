@@ -1,0 +1,160 @@
+{
+  "_source": "Pipeline's devnet API, 10 November 2026",
+  "markets": {
+    "markets": [
+      {
+        "address": "2YT9jEF5i4kg15883cwyCtuuHSuMrUrFTeqLPmPCbZVv",
+        "created_at": "2026-11-10T21:29:06Z",
+        "created_by": "5frqE7XgGfsz6bmjCK4ABpkChuGJEsFcZSURNxL53vve",
+        "flags": [
+          "upgradeable",
+          "token-2022"
+        ],
+        "market_state": "6jb2KV5UD9GxYihd2aieHKh1PKPQpnP6Wku95qGMstTA",
+        "mints": [
+          {
+            "decimals": 6,
+            "extension_types": [
+              18,
+              19
+            ],
+            "extensions": {
+              "metadata_pointer": {
+                "authority": null,
+                "metadata_address": "7Ef6T3cgMsrcbg2qk2ZehVVMYBrWN9kjvzNeH8ZhACWY"
+              },
+              "token_metadata": {
+                "additional_metadata": [],
+                "mint": "7Ef6T3cgMsrcbg2qk2ZehVVMYBrWN9kjvzNeH8ZhACWY",
+                "name": "Site UI Test",
+                "symbol": "UITEST",
+                "update_authority": null,
+                "uri": "https://raw.githubusercontent.com/MajocoReborn/Pipeline-Sniper-Tax/main/metadata/sniper-tax.devnet.json"
+              }
+            },
+            "flags": [
+              "token-2022"
+            ],
+            "freeze_authority": null,
+            "liquidity": "857142857142858",
+            "mint": "7Ef6T3cgMsrcbg2qk2ZehVVMYBrWN9kjvzNeH8ZhACWY",
+            "mint_authority": null,
+            "readable": true,
+            "supply": "1000000000000000",
+            "token_program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+            "vault": "GGYJwg2GWwX2CCsv3ZAoKVUzcsXcodEsXqLbyYZW26dw"
+          },
+          {
+            "decimals": 9,
+            "extension_types": [],
+            "extensions": {},
+            "flags": [],
+            "freeze_authority": null,
+            "liquidity": "105000000",
+            "mint": "So11111111111111111111111111111111111111112",
+            "mint_authority": null,
+            "readable": true,
+            "supply": "0",
+            "token_program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+            "vault": "HhRXscPGXK7warCKi1KXSayHkV47DScnx7FFbeUmfYx4"
+          }
+        ],
+        "stats_24h": {
+          "last_trade_at": "2026-11-10T21:31:11Z",
+          "trades": 1,
+          "volume_by_input_mint": {
+            "So11111111111111111111111111111111111111112": "5000000"
+          }
+        },
+        "strategy_program": "EZwLuZ8mSiBoeKtbHwQK4kxCqqj4JuureT1kHpTK3i6b",
+        "supports_exact_out": true
+      },
+      {
+        "address": "EvXtpuXsMQi5ZPhQKHQCA7GNPyN7u5RRsLoPWfGd1TuC",
+        "created_at": "2026-11-10T21:27:30Z",
+        "created_by": "5frqE7XgGfsz6bmjCK4ABpkChuGJEsFcZSURNxL53vve",
+        "flags": [
+          "upgradeable",
+          "token-2022"
+        ],
+        "market_state": "GAw4Zbn3Z26t1k9otfHerR4zZYSbEXtD8P9Yun9sfFdj",
+        "mints": [
+          {
+            "decimals": 6,
+            "extension_types": [
+              18,
+              19
+            ],
+            "extensions": {
+              "metadata_pointer": {
+                "authority": null,
+                "metadata_address": "FvwwZZNuXmuCXEhP7y8Zsr9i7WYwL9Z7GvVMEFsPxxcw"
+              },
+              "token_metadata": {
+                "additional_metadata": [],
+                "mint": "FvwwZZNuXmuCXEhP7y8Zsr9i7WYwL9Z7GvVMEFsPxxcw",
+                "name": "Site E2E Test",
+                "symbol": "SITETEST",
+                "update_authority": null,
+                "uri": "https://raw.githubusercontent.com/MajocoReborn/Pipeline-Sniper-Tax/main/metadata/sniper-tax.devnet.json"
+              }
+            },
+            "flags": [
+              "token-2022"
+            ],
+            "freeze_authority": null,
+            "liquidity": "897129186602871",
+            "mint": "FvwwZZNuXmuCXEhP7y8Zsr9i7WYwL9Z7GvVMEFsPxxcw",
+            "mint_authority": null,
+            "readable": true,
+            "supply": "1000000000000000",
+            "token_program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+            "vault": "9XGULhoBGH6o9yQ1WHMTDMZvECdNqHmbViYwady4TDEL"
+          },
+          {
+            "decimals": 9,
+            "extension_types": [],
+            "extensions": {},
+            "flags": [],
+            "freeze_authority": null,
+            "liquidity": "110000000",
+            "mint": "So11111111111111111111111111111111111111112",
+            "mint_authority": null,
+            "readable": true,
+            "supply": "0",
+            "token_program": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+            "vault": "EosPVw6oZV3a6xbN2RdPQwaHWcpQhN5kguXANkVd7tqF"
+          }
+        ],
+        "stats_24h": {
+          "last_trade_at": "2026-11-10T21:27:33Z",
+          "trades": 1,
+          "volume_by_input_mint": {
+            "So11111111111111111111111111111111111111112": "10000000"
+          }
+        },
+        "strategy_program": "EZwLuZ8mSiBoeKtbHwQK4kxCqqj4JuureT1kHpTK3i6b",
+        "supports_exact_out": true
+      }
+    ]
+  },
+  "trades": {
+    "trades": [
+      {
+        "block_time": "2026-11-10T21:27:33Z",
+        "input_mint": "So11111111111111111111111111111111111111112",
+        "integrator": null,
+        "integrator_fee": "0",
+        "market": "EvXtpuXsMQi5ZPhQKHQCA7GNPyN7u5RRsLoPWfGd1TuC",
+        "mode": "exact_in",
+        "net_sent": "10000000",
+        "output_mint": "FvwwZZNuXmuCXEhP7y8Zsr9i7WYwL9Z7GvVMEFsPxxcw",
+        "pipeline_fee": "25000",
+        "received": "2870813397129",
+        "signature": "5kDYYNwt1poZiNZDJtJogPoKL7XcMCPp7E1RFaq1wZ4fHTiMoEf9KMNhZqsvWg9Qp5dKPp5VuCUZLbbfR4qiBiLK",
+        "slot": 520877620,
+        "trader": "3u344KkiHJsJF5xucdH5dDHsbHuCL3NtQbdPUKxjn3Zt"
+      }
+    ]
+  }
+}

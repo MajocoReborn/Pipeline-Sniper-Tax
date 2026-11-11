@@ -199,6 +199,13 @@ describe('simulation errors', () => {
         expect(explainSimulationError('"AccountNotFound"')).toMatch(/no SOL/);
         expect(explainSimulationError('"InsufficientFundsForFee"')).toMatch(/not enough SOL/);
         expect(explainSimulationError('{"InstructionError":[2,{"Custom":1}]}')).toMatch(/not enough/);
+        // As the RPC client reports them, with bigints serialized as strings.
+        expect(explainSimulationError('{"InstructionError":["2",{"Custom":"1"}]}')).toMatch(/not enough/);
+        const slipped = [
+            'Program log: AnchorError occurred. Error Code: InsufficientOutput. Error Number: 6021. Error Message: Trader received less than the minimum.',
+        ];
+        expect(explainSimulationError('{"InstructionError":["4",{"Custom":"6021"}]}', slipped)).toMatch(/slippage/);
+        expect(explainSimulationError('{"InstructionError":["4",{"Custom":"6021"}]}')).toBeNull();
         expect(explainSimulationError('{"InstructionError":[6,{"Custom":6010}]}')).toBeNull();
         expect(explainSimulationError('{"InstructionError":[6,{"Custom":10}]}')).toBeNull();
     });

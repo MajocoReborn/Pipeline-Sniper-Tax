@@ -51,6 +51,15 @@ async function accountData(rpc: Rpc, address: Address): Promise<Uint8Array | nul
     return value ? new Uint8Array(getBase64Encoder().encode(value.data[0])) : null;
 }
 
+/** A token account's balance (SPL Token or Token-2022), 0 if the account doesn't exist. */
+export async function tokenBalance(rpc: Rpc, account: Address): Promise<bigint> {
+    const data = await accountData(rpc, account);
+    if (!data || data.length < 72) {
+        return 0n;
+    }
+    return new DataView(data.buffer, data.byteOffset + 64, 8).getBigUint64(0, true);
+}
+
 export async function accountExists(rpc: Rpc, address: Address): Promise<boolean> {
     const { value } = await rpc
         .getAccountInfo(address, { encoding: 'base64', commitment: 'confirmed', dataSlice: { offset: 0, length: 0 } })
