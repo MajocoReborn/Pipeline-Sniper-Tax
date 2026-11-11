@@ -13,9 +13,10 @@ import {
 import { getCreateAssociatedTokenIdempotentInstruction } from '@solana-program/token-2022';
 
 import { NATIVE_MINT, exactIn, poolPricing, quoteExactIn, swapIx, type Quote, type Side } from '../client/index.js';
-import { accountExists, balance, confirm, simulate, type Rpc } from '../launch/chain.js';
+import { SIGNATURE_FEE, SPACE, accountExists, balance, confirm, simulate, type Rpc } from '../launch/chain.js';
 import { LaunchError, explainSimulationError, type Sender } from '../launch/run.js';
 import { launchMessage } from '../launch/transactions.js';
+import { formatSol } from '../launch/units.js';
 import { associatedTokenAddress, pipelineFee } from '../vendor/pipeline/index.js';
 import type { VerifiedPool } from './pools.js';
 
@@ -161,7 +162,42 @@ export type TradeResult = {
     slot: bigint;
 };
 
-/** Simulates, sends and confirms one trade. Nothing is sent if the simulation fails. */
+/**
+ * Why a simulated trade must not be sent although it succeeded; `null` when it may be. A buy
+ * may spend at most what the page showed: the amount, Pipeline's fee, the token account's
+ * rent if it is new, and the signature fee. A sell that unwraps must pay the trader at least
+ * the minimum received less the fee; one that keeps the proceeds wrapped may cost only the fee.
+ */
+export function tradeSpendProblem(input: {
+    side: Side;
+    before: bigint;
+    after: bigint | null;
+    amountIn: bigint;
+    minAmountOut: bigint;
+    /** Rent for the trader's new token account, or 0 if they already have one. */
+    tokenAccountRent: bigint;
+    unwrap: boolean;
+}): string | null {
+    const { side, before, after } = input;
+    if (after === null) {
+        return "The trade's effect on your SOL could not be read from the simulation. Nothing was sent.";
+    }
+    if (side === 'buy') {
+        const most = input.amountIn + pipelineFee(input.amountIn) + input.tokenAccountRent + SIGNATURE_FEE;
+        return before - after > most
+            ? `The buy would cost ${formatSol(before - after, 9)} SOL, more than the ${formatSol(most, 9)} SOL shown. Nothing was sent.`
+            : null;
+    }
+    const least = input.unwrap ? before + input.minAmountOut - SIGNATURE_FEE : before - SIGNATURE_FEE;
+    return after < least
+        ? `The sell would leave you ${formatSol(after, 9)} SOL, less than the ${formatSol(least, 9)} SOL expected. Nothing was sent.`
+        : null;
+}
+
+/**
+ * Simulates, sends and confirms one trade. Nothing is sent if the simulation fails, or if it
+ * would spend more SOL (or pay out less) than the page showed (`tradeSpendProblem`).
+ */
 export async function runTrade(input: {
     rpc: Rpc;
     trader: TransactionSigner;
@@ -176,6 +212,10 @@ export async function runTrade(input: {
     const onProgress = input.onProgress ?? (() => {});
     const accounts = await traderAccounts(input.verified, trader.address);
     const hadQuoteAccount = await accountExists(rpc, accounts.quote);
+    const tokenAccountRent =
+        input.side === 'buy' && !(await accountExists(rpc, accounts.token))
+            ? await rpc.getMinimumBalanceForRentExemption(BigInt(SPACE.token2022Account)).send()
+            : 0n;
     const instructions = await tradeInstructions({ ...input, closeQuoteAccount: !hadQuoteAccount });
     const { value: lifetime } = await rpc.getLatestBlockhash({ commitment: 'confirmed' }).send();
     const message = launchMessage(trader, instructions, lifetime);
@@ -191,6 +231,18 @@ export async function runTrade(input: {
             `The trade would fail${reason ? `: ${reason}` : ''} (${simulation.error}). Nothing was sent.`,
             simulation.logs,
         );
+    }
+    const problem = tradeSpendProblem({
+        side: input.side,
+        before,
+        after: simulation.lamportsAfter,
+        amountIn: input.amountIn,
+        minAmountOut: input.minAmountOut,
+        tokenAccountRent,
+        unwrap: !hadQuoteAccount,
+    });
+    if (problem) {
+        throw new LaunchError(problem, simulation.logs);
     }
     const signature = await send(message);
     onProgress({ step: 'sent', signature });

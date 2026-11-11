@@ -104,7 +104,7 @@ cargo mutants -p sniper-tax-math
 | `transfer_hook` | 1 test, with the hook on the quote mint. Every path in which the program makes transfers: `launch`, refund, the output of a sell, `claim_tax` and `sweep_protocol_fees`. With exact counter values; without the hook accounts they fail cleanly |
 | Long stress run | 43,139 trades, 12,814 of them taxed buys, without a single broken invariant |
 | Mutation test | 78 of 79 mutants caught (84 found, 5 unviable). Because of the one survivor, `cargo mutants` exits with code 2 |
-| `app` (`npm test`) | 74 tests: the client and the pool's maths against the Rust vectors, the launch form and transactions, the API parser, pool verification and reads as of a slot, the per-trade tax walk, quotes and trade transactions, a creator's pools and the claim, the routes, the page views, and display helpers. The devnet tests are skipped without `DEVNET_E2E` |
+| `app` (`npm test`) | 76 tests: the client and the pool's maths against the Rust vectors, the launch form and transactions, the API parser, pool verification and reads as of a slot, the per-trade tax walk, quotes, trade transactions and the check before a trade is sent, a creator's pools and the claim, the routes, the page views, and display helpers. The devnet tests are skipped without `DEVNET_E2E` |
 | `app/test/devnet.e2e.test.ts` | 1 test, about 106 s on devnet: a launch, a sniper buy and a buy after the window, each followed by the tax check against the pool, then the creator's claim (passed on 11 November, see Devnet) |
 | `app/test/devnet.market.e2e.test.ts` | 1 read-only test, about 1 s, plus a simulated buy with `DEVNET_E2E_KEYPAIR`: every devnet market verifies and every listed trade gets an exact tax |
 
@@ -139,6 +139,7 @@ The one surviving mutant is equivalent to the original code: the filter `*reserv
 20. **Pipeline's candles include the tax.** They price each trade by what the trader paid, so a sniper buy looks like a spike. The site charts the market value from the pool's reserves instead.
 21. **The public devnet RPC is several nodes, a few slots apart.** Right after a trade, a plain read can come from a node that hasn't seen it: on 11 November the token page quoted a sell from the reserves before the visitor's own buy. Read as of the trade's slot instead: `runTrade` returns it, and `readVerifiedPool(rpc, pool, slot)` passes it as `minContextSlot` and asks again while the node is behind. The devnet tests read balances the same way.
 22. **The public devnet RPC rate-limits bursts** (HTTP 429), for example right after a launch. The devnet tests use `patientRpc()` from `test/helpers.ts`, which waits and retries. The site doesn't retry: its pages keep their last data and poll again.
+23. **The creator dashboard needs `getProgramAccounts` with filters.** The public devnet RPC allows it; some mainnet RPC providers restrict or charge extra for it. Check that before choosing a mainnet RPC, or the dashboard stays empty.
 
 ## Devnet
 
@@ -218,7 +219,7 @@ The new wallet was derived with Phantom's path (`solana-keygen recover 'prompt:/
 - **The sniper tax through the router:** in the end-to-end test another wallet bought with 0.01 SOL, 2 seconds after the launch. It paid 96.8% tax (9,680,000 lamports: 8,712,000 for the creator, 968,000 for the protocol) and received 2,870,813 tokens; without the tax it would have received about 81.8 million.
 - **Through Pipeline's API:** a quote 48 seconds after the page's launch included the tax (about 46%). After the window, a fresh wallet bought with 0.005 SOL using `/v1/swap-transaction`, checked and simulated before signing, and received the quoted 42,857,142 tokens. The API lists both markets with the mint flags (no mint or freeze authority, metadata update authority `null`) and both trades.
 
-**Trading and claiming through the site (11 November, milestones 3 and 4).** Paid by a new throwaway key, `6UKuJiruzY9CaMyhRdH7tBL4mDPmSbeAkZVmGXnJeTb3` (funded by the owner with 2.5 devnet SOL; about 1.72 left afterwards), and a second one for the page, `64byJXMekQ4K6iVtfHVHnM8bPm9s5dLsJhuDfJrRS5EZ` (0.05 SOL from the first). Neither key was ever in the repository. All launches used the Normal preset with a permanent 1% and a 10% creator share:
+**Trading and claiming through the site (11 November, milestones 3 and 4).** Paid by a new throwaway key, `6UKuJiruzY9CaMyhRdH7tBL4mDPmSbeAkZVmGXnJeTb3` (funded by the owner with 2.5 devnet SOL; the 1.7695 SOL left was sent back to the devnet wallet `CUiq3QQ…` on 11 November, so both keys are empty), and a second one for the page, `64byJXMekQ4K6iVtfHVHnM8bPm9s5dLsJhuDfJrRS5EZ` (0.05 SOL from the first). Neither key was ever in the repository. All launches used the Normal preset with a permanent 1% and a 10% creator share:
 
 | Launched by | Token | Pool | Pipeline market |
 |---|---|---|---|
@@ -299,7 +300,7 @@ In addition, the unchanged source (commit `8bb831b`) built exactly `222ee769…`
 
 ## Open items
 
-1. **Launch site:** the plan in [`LAUNCH-SITE.md`](LAUNCH-SITE.md) is approved (the name and domain come later). Milestones 1 (the TypeScript client), 2 (the launch page), 3 (the launch list and token page, with trading) and 4 (the creator dashboard, with claims) are done and proven on devnet. Next is milestone 5: polish, a security review of the site with the Security-Agent repo, and a deploy to a public devnet URL (the name and domain are still open, S7). The site doesn't offer `sweep_protocol_fees` yet. The throwaway key `6UKu…eTb3` still has about 1.72 devnet SOL for its devnet runs; its keypair lived only in the cloud session's scratchpad, so a new session needs a new key.
+1. **Launch site:** the plan in [`LAUNCH-SITE.md`](LAUNCH-SITE.md) is approved (the name and domain come later). Milestones 1 (the TypeScript client), 2 (the launch page), 3 (the launch list and token page, with trading) and 4 (the creator dashboard, with claims) are done and proven on devnet. Next is milestone 5: polish, a security review of the site with the Security-Agent repo, and a deploy to a public devnet URL (the name and domain are still open, S7). The site doesn't offer `sweep_protocol_fees` yet. The throwaway keys are empty (their SOL went back to the devnet wallet) and lived only in the cloud session's scratchpad, so a new devnet run needs a new key.
 2. **Optional:** run `demo` on devnet (about 0.2 SOL) to see a full launch on the new version.
 3. **Phase 6:** the self-review is in [`SECURITY-REVIEW.md`](SECURITY-REVIEW.md). H1, H2, L1, L2, I1 and I2 are fixed. Still open: M1 and M2 (operational), L3 (display extensions) and the residual risk of a hook on the quote mint. After that, an external audit.
 4. **Before mainnet:**

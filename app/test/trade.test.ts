@@ -7,7 +7,14 @@ import { ASSOCIATED_TOKEN_PROGRAM_ADDRESS } from '@solana-program/token-2022';
 import { describe, expect, it } from 'vitest';
 
 import { MAX_TRANSACTION_SIZE, launchMessage } from '../src/launch/transactions.js';
-import { CLOCK_MARGIN_SECS, maxSellable, quoteTrade, tradeInstructions } from '../src/market/trade.js';
+import { SIGNATURE_FEE } from '../src/launch/chain.js';
+import {
+    CLOCK_MARGIN_SECS,
+    maxSellable,
+    quoteTrade,
+    tradeInstructions,
+    tradeSpendProblem,
+} from '../src/market/trade.js';
 import { PIPELINE_PROGRAM_ADDRESS, pipelineFee } from '../src/vendor/pipeline/index.js';
 
 import { verifiedFromVector } from './helpers.js';
@@ -107,5 +114,32 @@ describe('trade transactions', () => {
         ]);
         expect(keeping).toHaveLength(2);
         expect(size(closing)).toBeLessThanOrEqual(MAX_TRANSACTION_SIZE);
+    });
+});
+
+describe('the check before a trade is sent', () => {
+    const before = 1_000_000_000n;
+    const amountIn = 10_000_000n;
+    const minAmountOut = 9_778_000n;
+    // The figures of the buy and the sell through the page on devnet (11 November).
+    const rent = 1_513_840n;
+    const check = (side: 'buy' | 'sell', after: bigint | null, tokenAccountRent: bigint, unwrap: boolean) =>
+        tradeSpendProblem({ side, before, after, amountIn, minAmountOut, tokenAccountRent, unwrap });
+
+    it('lets a buy spend exactly what the page showed, and no more', () => {
+        const shown = amountIn + pipelineFee(amountIn) + SIGNATURE_FEE;
+        expect(check('buy', before - shown, 0n, true)).toBeNull();
+        expect(check('buy', before - shown - rent, rent, true)).toBeNull();
+        expect(check('buy', before - shown - 1n, 0n, true)).toMatch(/more than/);
+        expect(check('buy', before - shown - rent - 1n, rent, true)).toMatch(/more than/);
+        expect(check('buy', null, 0n, true)).toMatch(/could not be read/);
+    });
+
+    it('lets a sell pay out at least the minimum, or cost only the fee when it stays wrapped', () => {
+        expect(check('sell', before + minAmountOut - SIGNATURE_FEE, 0n, true)).toBeNull();
+        expect(check('sell', before + 9_877_328n, 0n, true)).toBeNull();
+        expect(check('sell', before + minAmountOut - SIGNATURE_FEE - 1n, 0n, true)).toMatch(/less than/);
+        expect(check('sell', before - SIGNATURE_FEE, 0n, false)).toBeNull();
+        expect(check('sell', before - SIGNATURE_FEE - 1n, 0n, false)).toMatch(/less than/);
     });
 });

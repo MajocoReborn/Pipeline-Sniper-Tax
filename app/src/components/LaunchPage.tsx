@@ -33,6 +33,7 @@ import {
 import { LaunchError, createPool, runLaunch, type LaunchProgress } from '../launch/run.js';
 import { formatBps, formatDuration, formatSol, parseSol, shortAddress } from '../launch/units.js';
 import { href } from '../route.js';
+import { ExternalLink } from './common.js';
 import { sendWithWallet as send } from './hooks.js';
 
 const PERMANENT_FEES_BPS = [0, 50, 100, 200, 300, 500] as const;
@@ -104,14 +105,6 @@ function formatTokens(amount: bigint): string {
 }
 
 const sol = (lamports: bigint, decimals = 6) => `${formatSol(lamports, decimals)} SOL`;
-
-function ExternalLink({ href, children }: { href: string; children: ReactNode }) {
-    return (
-        <a href={href} target="_blank" rel="noreferrer noopener">
-            {children}
-        </a>
-    );
-}
 
 // ---------------------------------------------------------------------------------------------
 // The form.

@@ -128,7 +128,7 @@ The site builds transactions that move users' money, so:
     - `api.ts` reads Pipeline's API as untrusted data. Every field is checked, and malformed entries are dropped.
     - `pools.ts` accepts a pool only if our program owns it and it sits at the address its own fields derive.
     - `history.ts` works out the exact tax of every trade by walking back from the pool's reserves, including trades that share a slot. It is checked against a real devnet trade (96.80% exact, where the block time suggests 95.70%) and a simulated sniper rush.
-    - `trade.ts` builds buys and sells (wrap and unwrap SOL, Pipeline's 0.25% fee, a minimum received that allows for 2 seconds of clock drift plus slippage) and simulates before signing. `runTrade` returns the slot the trade landed in.
+    - `trade.ts` builds buys and sells (wrap and unwrap SOL, Pipeline's 0.25% fee, a minimum received that allows for 2 seconds of clock drift plus slippage) and simulates before signing. It doesn't send a buy that would spend more SOL than the page showed (the amount, Pipeline's fee, a new token account's rent and the signature fee), or a sell that would pay out less than its minimum. `runTrade` returns the slot the trade landed in.
     - After a trade, the token page reads the pool as of that slot (`minContextSlot`), asking again while the RPC node is behind, so the next quote includes the trade.
     - `view.ts` holds the token details, the buyer checks and the value series.
   - Pages (hash routes):
