@@ -169,9 +169,18 @@ non-commercial use only.
 
 **Deploying** (the owner, with their own Cloudflare account; no keys in the repository):
 
-- From the dashboard, connected to GitHub (redeploys on every push to `main`): create a Worker by
-  importing this repository, with root directory `app`, build command `npm ci && npm run build`
-  and deploy command `npx wrangler@4.154.0 deploy`. Cloudflare's guide:
+- From the dashboard, connected to GitHub (redeploys on every push to `main`): Workers & Pages →
+  Create application → GitHub → this repository. The form has no root directory field, so the
+  commands change into `app` themselves (this is how the owner set it up on 11 November):
+  - Project name: `sniper-tax-launch-devnet` (must equal `name` in `app/wrangler.jsonc`);
+  - Build command: `cd app && npm ci && npm run build`;
+  - Deploy command: `npx wrangler@4.154.0 deploy --cwd app`;
+  - Preview command: `npx wrangler@4.154.0 preview --cwd app`.
+
+  Then, under Settings → Build → Branch control, make sure the production branch is `main`.
+  Cloudflare takes the repository's default branch, and on GitHub that was still PR #1's
+  `claude/sleepy-faraday-1fldh4`, which has no `app/`: the first build failed with
+  `cd: can't cd to app`. Set GitHub's default branch to `main` too. Cloudflare's guide:
   https://developers.cloudflare.com/workers/ci-cd/builds/.
 - Or from a computer with Node 20.19 or later:
 
