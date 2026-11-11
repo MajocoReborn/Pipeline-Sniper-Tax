@@ -7,8 +7,9 @@
             Only this site's own scripts and styles run. The page talks to the devnet RPC and to
             Pipeline's API, and loads token images over HTTPS. Wallet extensions inject through
             the Wallet Standard, which a CSP doesn't block. `frame-ancestors` only works as a
-            header, so the host must send `Content-Security-Policy: frame-ancestors 'none'` (a
-            page that asks for signatures must not be framed).
+            header, so the host sends this policy plus `frame-ancestors 'none'` from
+            public/_headers (a page that asks for signatures must not be framed); the two must
+            match, which test/headers.test.ts checks.
         -->
         <meta
             http-equiv="Content-Security-Policy"

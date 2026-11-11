@@ -150,6 +150,8 @@ The site builds transactions that move users' money, so:
   - The page lists each pool with its live tax and unclaimed tax, a total, and a Claim button per pool; after a claim it reads the pools as of the claim's slot. It says that the protocol's part is separate and that the launch liquidity stays in the pool for good. `sweep_protocol_fees` is not offered yet.
   - **On devnet:** the end-to-end test now ends with the creator finding the new pool through `creatorPools` and claiming through `runClaim`: 8,118,000 lamports unclaimed, 8,113,000 more SOL in the creator's wallet (the 5,000 difference is the signature fee), nothing left for the creator in the pool, and the protocol's part and the reserves untouched. Through the dashboard in Chromium, with the stand-in wallet as the creator, three pools were claimed, each paying exactly its unclaimed tax less the fee (8,298,000, 8,019,900 and 8,118,000 lamports); each row then showed nothing left. The wallet saw the instructions create the wrapped-SOL account, call our program and close the account, after the page said "Simulated". The page doesn't scroll sideways at 390 pixels.
 
+- **Milestone 5, in progress (11 November):** the hosting is prepared (decision S9). `app/public/_headers` sends the Content Security Policy with `frame-ancestors 'none'` and the other security headers, and `app/wrangler.jsonc` deploys `app/dist` as a Cloudflare Worker with static assets. Checked locally with wrangler and Chromium: every header arrives, the pages load without a CSP error, and framing is refused. The deploy itself waits for the owner's Cloudflare account (`HANDOFF.md`, "Hosting"). Still open: the name and domain (S7) and how the Security-Agent repo reviews the site.
+
 ## 8. Decisions
 
 The owner took every recommendation on 10 November 2026; the name and domain come later.
@@ -164,6 +166,7 @@ The owner took every recommendation on 10 November 2026; the name and domain com
 | S6 | Creator's share outside the pool | Default 0%, at most 20%, always shown |
 | S7 | Name and domain | Later |
 | S8 | Is the sniper tax always on, or optional? | **Decided (10 November): always on**, with an adjustable strength (the presets in 3.1). Every launch on the site protects buyers, and the protocol earns on every tax. Making it optional later is a small site change, since the program accepts 0% |
+| S9 | Hosting | **Decided (11 November): Cloudflare, a Worker with static assets.** Free, also for commercial use, and it sends our own headers (`app/public/_headers`), which a page that asks for signatures needs for `frame-ancestors 'none'`. GitHub Pages can't send headers; Vercel's free plan is non-commercial only |
 
 ## 9. Out of scope for now
 
