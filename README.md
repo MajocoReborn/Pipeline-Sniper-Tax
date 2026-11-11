@@ -46,8 +46,9 @@ cargo test --workspace                 # maths, property and integration tests
 
 Live on devnet, registered with the Pipeline router:
 
-| | Address |
+| | Where |
 |---|---|
+| The launch site | <https://sniper-tax-launch-devnet.majoco21.workers.dev> (devnet only; the one official address until the name and domain are chosen) |
 | Program | [`EZwLuZ8mSiBoeKtbHwQK4kxCqqj4JuureT1kHpTK3i6b`](https://explorer.solana.com/address/EZwLuZ8mSiBoeKtbHwQK4kxCqqj4JuureT1kHpTK3i6b?cluster=devnet) |
 | Demo pool (90 s tax window) | [`GeajhDYc24MyRecNv1a69nSsa2kdUtwbhLec6xpqVG3B`](https://explorer.solana.com/address/GeajhDYc24MyRecNv1a69nSsa2kdUtwbhLec6xpqVG3B?cluster=devnet) |
 | Upgrade authority, config admin and treasury | `CUiq3QQbXMsrgCpiN423zr2NTrdfPRuGUy9EQKQ6CGap` (a wallet only for devnet) |
