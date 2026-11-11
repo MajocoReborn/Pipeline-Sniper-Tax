@@ -1,2 +1,4 @@
 node_modules/
 dist/
+# Wrangler's local state from `wrangler dev`.
+.wrangler/

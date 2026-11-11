@@ -1,0 +1,11 @@
+// Cloudflare Workers with static assets: the built site in dist/, no Worker code. The response
+// headers come from public/_headers. Deploy steps: docs/HANDOFF.md ("Hosting").
+{
+    "name": "sniper-tax-launch-devnet",
+    "compatibility_date": "2026-10-27",
+    "assets": {
+        "directory": "./dist",
+        // Every page is a hash route of index.html, so any other path is a plain 404.
+        "not_found_handling": "none",
+    },
+}

@@ -3,3 +3,4 @@ node_modules/
 package-lock.json
 test/vectors.json
 test/fixtures/*.json
+.wrangler/

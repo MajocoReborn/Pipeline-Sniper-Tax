@@ -1,0 +1,16 @@
+# Response headers for the static host (Cloudflare reads this file; Vite copies it into dist/).
+# The Content-Security-Policy is the one in index.html plus `frame-ancestors 'none'`, which only
+# works as a header: a page that asks for signatures must not be framed. test/headers.test.ts
+# keeps the two policies in step.
+
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https: data:; connect-src 'self' https://api.devnet.solana.com wss://api.devnet.solana.com https://pipeline-devnet.up.railway.app; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Cross-Origin-Opener-Policy: same-origin-allow-popups
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
+
+# Vite names these files by their content, so they never change under the same name.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

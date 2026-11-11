@@ -4,7 +4,12 @@ For a new session. The design and background are in [`PLAN.md`](PLAN.md), the re
 [`SECURITY-REVIEW.md`](SECURITY-REVIEW.md); this document says where everything is, how to test
 it and what to watch out for.
 
-**Latest step (11 November):** milestones 3 and 4 of the launch site are done and proven on devnet.
+**Latest step (11 November):** PR #2 (the launch site, milestones 1 to 4) was merged into `main`
+(merge commit `a65266e`). The site is then prepared for hosting on Cloudflare (decision S9):
+`app/public/_headers` sends the security headers and `app/wrangler.jsonc` describes the deploy;
+both were checked locally with wrangler and Chromium. The owner deploys it; see "Hosting".
+
+**Before that (11 November):** milestones 3 and 4 of the launch site are done and proven on devnet.
 Milestone 3 is the launch list and the token page, with trading: the end-to-end test makes a sniper
 buy and a buy after the window through the site's trade code and checks the tax of every trade
 against what the pool accrued, and a buy and a sell went through the token page in Chromium.
@@ -13,7 +18,7 @@ tax through the site's code, and three claims went through the page in Chromium.
 claiming through the site" under "Devnet", and [`LAUNCH-SITE.md`](LAUNCH-SITE.md) for the progress.
 Next is milestone 5: polish, a security review of the site and a public devnet deploy.
 
-**Before that (10 November):** findings H1, H2, I1, I2, L1 and L2 from the review are fixed in the
+**Earlier (10 November):** findings H1, H2, I1, I2, L1 and L2 from the review are fixed in the
 program, following the owner's choices (see "The owner's choices"). The new binary has sha256
 `9f24dafa0168585de8e15a519a178ed14e6e2bb7d3f8443862eff1db6379f7cd`. The owner upgraded devnet to it
 the same day (slot 520838510); see "Devnet".
@@ -23,7 +28,9 @@ the same day (slot 520838510); see "Devnet".
 - Repo: `MajocoReborn/Pipeline-Sniper-Tax`.
 - PR #1 (`claude/sleepy-faraday-1fldh4`) was merged into `main` on 10 November 2026 (merge
   commit `6756dc6`). New work starts on a fresh branch from `main`.
-- PR #2 (`claude/happy-knuth-hv0t34`, draft) holds the launch site: the plan and milestones 1 to 4.
+- PR #2 (`claude/happy-knuth-hv0t34`), the launch site with milestones 1 to 4, was merged into
+  `main` on 11 November 2026 (merge commit `a65266e`).
+- The hosting config is on `claude/milestone-3-launch-site-x9b94m`, started from that `main`.
 - The repo is public, so the strategy metadata on `main` is reachable: Pipeline's API reports it
   `valid` since 10 November. If the repo goes private again, it turns `metadata-unreachable`;
   then host the metadata elsewhere and update the registration's URI (the router has
@@ -51,7 +58,7 @@ the same day (slot 520838510); see "Devnet".
 | `docs/PLAN.md` | Design, account validation, threat model, decisions, progress |
 | `docs/SECURITY-REVIEW.md` | Self-review: findings, fixes and their tests |
 | `docs/LAUNCH-SITE.md` | Plan for the launch website (approved), with its progress |
-| `app/` | The launch site (Node 20.19 or later). `src/client` is the TypeScript client; `src/vendor/pipeline` is Pipeline's SDK, vendored unmodified (`VENDORED.md`); `src/launch` holds the launch logic without React (form rules, both transactions, costs, simulation, `runLaunch`); `src/market` reads markets and trades from Pipeline's API, verifies pools, works out each trade's tax (`history.ts`), builds trades (`trade.ts`) and finds a creator's pools and claims their tax (`creator.ts`); `src/components` holds the pages. `test/vectors.json` comes from the Rust client |
+| `app/` | The launch site (Node 20.19 or later). `src/client` is the TypeScript client; `src/vendor/pipeline` is Pipeline's SDK, vendored unmodified (`VENDORED.md`); `src/launch` holds the launch logic without React (form rules, both transactions, costs, simulation, `runLaunch`); `src/market` reads markets and trades from Pipeline's API, verifies pools, works out each trade's tax (`history.ts`), builds trades (`trade.ts`) and finds a creator's pools and claims their tax (`creator.ts`); `src/components` holds the pages. `public/_headers` holds the response headers for the host and `wrangler.jsonc` the Cloudflare config (see "Hosting"). `test/vectors.json` comes from the Rust client |
 
 ## Build and test
 
@@ -104,7 +111,7 @@ cargo mutants -p sniper-tax-math
 | `transfer_hook` | 1 test, with the hook on the quote mint. Every path in which the program makes transfers: `launch`, refund, the output of a sell, `claim_tax` and `sweep_protocol_fees`. With exact counter values; without the hook accounts they fail cleanly |
 | Long stress run | 43,139 trades, 12,814 of them taxed buys, without a single broken invariant |
 | Mutation test | 78 of 79 mutants caught (84 found, 5 unviable). Because of the one survivor, `cargo mutants` exits with code 2 |
-| `app` (`npm test`) | 76 tests: the client and the pool's maths against the Rust vectors, the launch form and transactions, the API parser, pool verification and reads as of a slot, the per-trade tax walk, quotes, trade transactions and the check before a trade is sent, a creator's pools and the claim, the routes, the page views, and display helpers. The devnet tests are skipped without `DEVNET_E2E` |
+| `app` (`npm test`) | 78 tests: the client and the pool's maths against the Rust vectors, the launch form and transactions, the API parser, pool verification and reads as of a slot, the per-trade tax walk, quotes, trade transactions and the check before a trade is sent, a creator's pools and the claim, the routes, the response headers, the page views, and display helpers. The devnet tests are skipped without `DEVNET_E2E` |
 | `app/test/devnet.e2e.test.ts` | 1 test, about 106 s on devnet: a launch, a sniper buy and a buy after the window, each followed by the tax check against the pool, then the creator's claim (passed on 11 November, see Devnet) |
 | `app/test/devnet.market.e2e.test.ts` | 1 read-only test, about 1 s, plus a simulated buy with `DEVNET_E2E_KEYPAIR`: every devnet market verifies and every listed trade gets an exact tax |
 
@@ -132,7 +139,7 @@ The one surviving mutant is equivalent to the original code: the filter `*reserv
 13. **The Solana CLI needs a keypair file** (a JSON array of 64 bytes). A wallet that exists only as a private key, or only in a wallet app, must first be turned into one, locally: from the seed phrase with `solana-keygen recover 'prompt://?key=0/0'`, or from the private key through a hidden prompt. Never paste a key or seed phrase into a chat. The 12 words the CLI prints during a deploy belong to the temporary buffer account, not to the wallet.
 14. **The TypeScript client mirrors the Rust client.** After changing `crates/sniper-tax-client` or a layout in the program, regenerate `app/test/vectors.json` (`cd app && npm run vectors`) and make the TypeScript match. CI regenerates the vectors and fails if the committed file differs.
 15. **The site's cost preview must stay exact.** `app/src/launch/run.ts` refuses to send a transaction that would spend more than its share of `launchCosts` (`chain.ts`). If a launch starts creating another account (a change in the program or the router), add it to `launchCosts` and `SPACE`, or every launch from the site stops before the wallet is asked.
-16. **The Content Security Policy is in `app/index.html`.** `connect-src` lists every host the page talks to; a new RPC or API host goes there, or the browser blocks it. Only the dev server allows inline styles (`vite.config.ts`). `frame-ancestors` only works as an HTTP header, so the host must send `frame-ancestors 'none'`.
+16. **The Content Security Policy is in two places:** `app/index.html` (a meta tag, for any host) and `app/public/_headers` (the header Cloudflare sends, with `frame-ancestors 'none'` added, which only works as a header). `test/headers.test.ts` fails if they differ. `connect-src` lists every host the page talks to; a new RPC or API host goes in both, or the browser blocks it. Only the dev server allows inline styles (`vite.config.ts`).
 17. **A launch is two transactions.** If the pool transaction fails or the creator declines it, the token already exists, with its whole supply in the creator's wallet. The page then offers to create the pool for that token (`createPool`), with the same form: the pool's address depends on the creator and the tax schedule, and its tokens on the creator's share.
 18. **The program keeps no per-trade record of tax.** `app/src/market/history.ts` works it out by walking back from the pool's reserves through Pipeline's trade list. If the walk fails, the API is usually behind the chain; the page then marks rates as estimates (≈) from the block time, which can be a second off the program's clock.
 19. **Custom error codes are ambiguous.** The router's `InsufficientOutput` and our `NotUpgradeAuthority` are both 6021, so the site recognises slippage by the log line, not the number. After serialisation the RPC reports codes as strings (`{"Custom":"1"}`).
@@ -140,6 +147,45 @@ The one surviving mutant is equivalent to the original code: the filter `*reserv
 21. **The public devnet RPC is several nodes, a few slots apart.** Right after a trade, a plain read can come from a node that hasn't seen it: on 11 November the token page quoted a sell from the reserves before the visitor's own buy. Read as of the trade's slot instead: `runTrade` returns it, and `readVerifiedPool(rpc, pool, slot)` passes it as `minContextSlot` and asks again while the node is behind. The devnet tests read balances the same way.
 22. **The public devnet RPC rate-limits bursts** (HTTP 429), for example right after a launch. The devnet tests use `patientRpc()` from `test/helpers.ts`, which waits and retries. The site doesn't retry: its pages keep their last data and poll again.
 23. **The creator dashboard needs `getProgramAccounts` with filters.** The public devnet RPC allows it; some mainnet RPC providers restrict or charge extra for it. Check that before choosing a mainnet RPC, or the dashboard stays empty.
+
+## Hosting
+
+Decision S9 (11 November): the site is hosted on **Cloudflare, as a Worker with static assets**
+and no Worker code. Free, also for commercial use, and it sends our own response headers.
+GitHub Pages can't send headers, so no `frame-ancestors`; Vercel's free plan is for
+non-commercial use only.
+
+- `app/public/_headers`: the Content Security Policy with `frame-ancestors 'none'`,
+  `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy: no-referrer`, a
+  `Cross-Origin-Opener-Policy` that still lets wallets open popups, a `Permissions-Policy`
+  without camera, microphone, location or payments, and a year's cache for `/assets/*`. Vite copies
+  it into `dist/`; Cloudflare doesn't serve it as a file. USB, HID and serial are deliberately not
+  blocked: some wallets talk to hardware wallets from the page.
+- `app/wrangler.jsonc`: the Worker `sniper-tax-launch-devnet`, serving `app/dist`.
+- Checked on 11 November with wrangler 4.154.0: `wrangler deploy --dry-run` reads the config and
+  the five files, and under `wrangler dev` the page sends every header above, `/_headers` is a 404,
+  and in Chromium the launch list and a token page load without a single CSP error while framing
+  the page from another origin is refused.
+
+**Deploying** (the owner, with their own Cloudflare account; no keys in the repository):
+
+- From the dashboard, connected to GitHub (redeploys on every push to `main`): create a Worker by
+  importing this repository, with root directory `app`, build command `npm ci && npm run build`
+  and deploy command `npx wrangler@4.154.0 deploy`. Cloudflare's guide:
+  https://developers.cloudflare.com/workers/ci-cd/builds/.
+- Or from a computer with Node 20.19 or later:
+
+  ```sh
+  cd app && npm ci && npm run build
+  npx wrangler@4.154.0 login
+  npx wrangler@4.154.0 deploy
+  ```
+
+- The site then runs at `https://sniper-tax-launch-devnet.<account>.workers.dev`. Check the
+  headers with `curl -sI <url> | grep -i -e content-security-policy -e x-frame-options`.
+- A custom domain comes with the name (S7). Keep `wrangler.jsonc`'s `compatibility_date` at or
+  before the date the pinned wrangler supports (4.154.0: 30 October 2026), or `wrangler dev`
+  refuses to start; raise both together.
 
 ## Devnet
 
@@ -300,7 +346,7 @@ In addition, the unchanged source (commit `8bb831b`) built exactly `222ee769…`
 
 ## Open items
 
-1. **Launch site:** the plan in [`LAUNCH-SITE.md`](LAUNCH-SITE.md) is approved (the name and domain come later). Milestones 1 (the TypeScript client), 2 (the launch page), 3 (the launch list and token page, with trading) and 4 (the creator dashboard, with claims) are done and proven on devnet. Next is milestone 5: polish, a security review of the site with the Security-Agent repo, and a deploy to a public devnet URL (the name and domain are still open, S7). The site doesn't offer `sweep_protocol_fees` yet. The throwaway keys are empty (their SOL went back to the devnet wallet) and lived only in the cloud session's scratchpad, so a new devnet run needs a new key.
+1. **Launch site:** the plan in [`LAUNCH-SITE.md`](LAUNCH-SITE.md) is approved (the name and domain come later). Milestones 1 (the TypeScript client), 2 (the launch page), 3 (the launch list and token page, with trading) and 4 (the creator dashboard, with claims) are done and proven on devnet. Milestone 5 is under way: the hosting on Cloudflare is prepared (S9, see "Hosting") and waits for the owner's deploy; the security review of the site (how the Security-Agent repo does it is open) and the name and domain (S7) are still to decide. The site doesn't offer `sweep_protocol_fees` yet. The throwaway keys are empty (their SOL went back to the devnet wallet) and lived only in the cloud session's scratchpad, so a new devnet run needs a new key.
 2. **Optional:** run `demo` on devnet (about 0.2 SOL) to see a full launch on the new version.
 3. **Phase 6:** the self-review is in [`SECURITY-REVIEW.md`](SECURITY-REVIEW.md). H1, H2, L1, L2, I1 and I2 are fixed. Still open: M1 and M2 (operational), L3 (display extensions) and the residual risk of a hook on the quote mint. After that, an external audit.
 4. **Before mainnet:**
