@@ -143,6 +143,13 @@ The site builds transactions that move users' money, so:
     - **Found and fixed by the page check:** the first sell was quoted from the reserves before the visitor's own buy (0.008381 SOL; it received 0.009877). The public RPC spreads requests over nodes a few slots apart, so the reload after the buy came from a node that hadn't seen it. Reading as of the trade's slot fixes it; the repeat run matched the quote. Also: a "you" badge in the trades list no longer pushes the tax column out of view, and `clockOffset` takes our time when the slot was read, so a slow RPC answer doesn't count as clock offset.
     - Addresses and figures are in `HANDOFF.md` (Devnet).
 
+- **Milestone 4, done (11 November):** the creator dashboard, `#/creator` ("Your launches").
+  - `app/src/market/creator.ts`:
+    - `creatorPools` asks the chain for every pool of our program with the creator's address in its creator field (`getProgramAccounts` by account size and that field), then verifies each the way the token page does. A pool the API hasn't indexed shows too, and a node that ignores the filter can't slip in someone else's pool.
+    - `runClaim` builds the claim: the creator's wrapped-SOL account (created if needed), `claim_tax` into it and, if the site created it, closing it, so the tax arrives as SOL. It is simulated first and not sent if the creator would end up with less than the unclaimed tax less the fee (or, when the tax stays wrapped, would pay more than the fee). Only the creator, only pools against SOL, and only with something to claim.
+  - The page lists each pool with its live tax and unclaimed tax, a total, and a Claim button per pool; after a claim it reads the pools as of the claim's slot. It says that the protocol's part is separate and that the launch liquidity stays in the pool for good. `sweep_protocol_fees` is not offered yet.
+  - **On devnet:** the end-to-end test now ends with the creator finding the new pool through `creatorPools` and claiming through `runClaim`: 8,118,000 lamports unclaimed, 8,113,000 more SOL in the creator's wallet (the 5,000 difference is the signature fee), nothing left for the creator in the pool, and the protocol's part and the reserves untouched. Through the dashboard in Chromium, with the stand-in wallet as the creator, three pools were claimed, each paying exactly its unclaimed tax less the fee (8,298,000, 8,019,900 and 8,118,000 lamports); each row then showed nothing left. The wallet saw the instructions create the wrapped-SOL account, call our program and close the account, after the page said "Simulated". The page doesn't scroll sideways at 390 pixels.
+
 ## 8. Decisions
 
 The owner took every recommendation on 10 November 2026; the name and domain come later.

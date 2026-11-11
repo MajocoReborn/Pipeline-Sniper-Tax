@@ -3,7 +3,12 @@
 import { useMemo, useSyncExternalStore } from 'react';
 import { isAddress, type Address } from '@solana/kit';
 
-export type Route = { page: 'launches' } | { page: 'launch' } | { page: 'pool'; pool: Address } | { page: 'missing' };
+export type Route =
+    | { page: 'launches' }
+    | { page: 'launch' }
+    | { page: 'creator' }
+    | { page: 'pool'; pool: Address }
+    | { page: 'missing' };
 
 export function parseRoute(hash: string): Route {
     const path = hash.replace(/^#/, '') || '/';
@@ -13,6 +18,9 @@ export function parseRoute(hash: string): Route {
     if (path === '/launch') {
         return { page: 'launch' };
     }
+    if (path === '/creator') {
+        return { page: 'creator' };
+    }
     const pool = /^\/pool\/([1-9A-HJ-NP-Za-km-z]{32,44})$/.exec(path)?.[1];
     return pool && isAddress(pool) ? { page: 'pool', pool } : { page: 'missing' };
 }
@@ -20,6 +28,7 @@ export function parseRoute(hash: string): Route {
 export const href = {
     launches: '#/',
     launch: '#/launch',
+    creator: '#/creator',
     pool: (pool: Address) => `#/pool/${pool}`,
 };
 

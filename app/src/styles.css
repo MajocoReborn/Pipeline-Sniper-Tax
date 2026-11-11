@@ -531,6 +531,46 @@ a.button.primary {
     }
 }
 
+/* Creator dashboard */
+
+.creator-row {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1.4fr) minmax(0, 1.4fr);
+    gap: 12px;
+    align-items: center;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+
+.creator-row .launch-stat .big {
+    font-weight: 700;
+}
+
+.claim {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.claim p {
+    margin: 0;
+    font-size: 0.85rem;
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 860px) {
+    .creator-row {
+        grid-template-columns: 40px minmax(0, 1fr) auto;
+    }
+
+    .creator-row .launch-stat,
+    .creator-row .claim {
+        grid-column: 2 / -1;
+    }
+}
+
 .token-image {
     border-radius: 50%;
     object-fit: cover;

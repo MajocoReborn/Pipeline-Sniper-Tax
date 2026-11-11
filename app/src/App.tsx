@@ -2,11 +2,24 @@ import { useState } from 'react';
 import type { Address } from '@solana/kit';
 import type { UiWalletAccount } from '@wallet-standard/react';
 
+import { CreatorPage } from './components/CreatorPage.js';
 import { LaunchList } from './components/LaunchList.js';
 import { LaunchPage } from './components/LaunchPage.js';
 import { TokenPage } from './components/TokenPage.js';
 import { WalletBar } from './components/WalletBar.js';
 import { href, useRoute } from './route.js';
+
+function ConnectToSeeLaunches() {
+    return (
+        <section className="card">
+            <h2>Connect a wallet to see your launches</h2>
+            <p>
+                Connect the wallet you launched with to see the sniper tax your launches have collected for you, and to
+                claim it.
+            </p>
+        </section>
+    );
+}
 
 function ConnectFirst() {
     return (
@@ -43,6 +56,9 @@ export function App() {
                     <a href={href.launch} aria-current={route.page === 'launch' ? 'page' : undefined}>
                         Launch a token
                     </a>
+                    <a href={href.creator} aria-current={route.page === 'creator' ? 'page' : undefined}>
+                        Your launches
+                    </a>
                 </nav>
                 <WalletBar account={account} onAccount={setAccount} />
             </header>
@@ -53,6 +69,13 @@ export function App() {
                         <LaunchPage key={account.address} account={account} />
                     ) : (
                         <ConnectFirst />
+                    )
+                ) : null}
+                {route.page === 'creator' ? (
+                    account ? (
+                        <CreatorPage key={account.address} account={account} />
+                    ) : (
+                        <ConnectToSeeLaunches />
                     )
                 ) : null}
                 {route.page === 'pool' ? (

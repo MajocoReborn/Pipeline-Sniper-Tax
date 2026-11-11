@@ -1,7 +1,8 @@
 // End to end on devnet: a launch built by the site's own code, then two buys by someone else
 // through `market/trade.ts` and the Pipeline router: a sniper buy inside the tax window and a
 // buy after it. After each buy, the tax that `market/history.ts` works out for every trade
-// Pipeline's API lists must add up, to the lamport, to the tax the pool has accrued. Off by
+// Pipeline's API lists must add up, to the lamport, to the tax the pool has accrued. Last, the
+// creator claims their part through `market/creator.ts`, as the dashboard does. Off by
 // default; it spends about 0.15 devnet SOL and takes about two minutes, most of it waiting for
 // the 90-second window to end.
 //
@@ -36,6 +37,7 @@ import { launchAmounts, type LaunchForm } from '../src/launch/form.js';
 import { runLaunch, type LaunchMessage, type LaunchProgress } from '../src/launch/run.js';
 import { launchMessage } from '../src/launch/transactions.js';
 import { getTrades, type ApiTrade } from '../src/market/api.js';
+import { creatorPools, runClaim } from '../src/market/creator.js';
 import { taxHistory, type Reserves } from '../src/market/history.js';
 import {
     chainNow,
@@ -318,6 +320,38 @@ describe.skipIf(!process.env.DEVNET_E2E)('a launch from the site on devnet', () 
             expect(second.history.trades.find((t) => t.trade.signature === sniper.signature)!.taxBps).toBe(
                 first.taxed.taxBps,
             );
+
+            // The creator finds the pool on the dashboard, read from the chain by the creator field,
+            // and claims their part of the tax through `market/creator.ts`.
+            const mine = await creatorPools(rpc, creator.address, late.slot);
+            const listed = mine.find((v) => v.address === result.keys.address);
+            expect(listed, 'the dashboard lists the new pool').toBeDefined();
+            const claimable = listed!.pool.accruedTaxQuote;
+            expect(claimable).toBe(second.verified.pool.accruedTaxQuote);
+            const beforeClaim = await lamportsAt(creator.address, late.slot);
+            const claimed = await runClaim({
+                rpc,
+                creator,
+                verified: listed!,
+                send: (message) => sendWithLocalKeys(rpc, message),
+            });
+            const afterClaim = await lamportsAt(creator.address, claimed.slot);
+            const claimedPool = (await readVerifiedPool(rpc, result.keys.address, claimed.slot))!.pool;
+            console.log('claim', {
+                signature: claimed.signature,
+                unwrapped: claimed.unwrapped,
+                claimableLamports: claimable.toString(),
+                creatorGainedLamports: (afterClaim - beforeClaim).toString(),
+            });
+            // All of it, as SOL (less the fee) when the site created the wrapped-SOL account.
+            expect(afterClaim - beforeClaim).toBe(claimed.unwrapped ? claimable - SIGNATURE_FEE : -SIGNATURE_FEE);
+            expect(claimedPool.accruedTaxQuote).toBe(0n);
+            // The protocol's part and the reserves are untouched.
+            expect(claimedPool.accruedProtocolQuote).toBe(second.verified.pool.accruedProtocolQuote);
+            expect({ quote: claimedPool.reserveQuote, token: claimedPool.reserveToken }).toEqual({
+                quote: second.verified.pool.reserveQuote,
+                token: second.verified.pool.reserveToken,
+            });
 
             // What the buyer has left goes back to the creator.
             const left = await balance(rpc, buyer.address);
