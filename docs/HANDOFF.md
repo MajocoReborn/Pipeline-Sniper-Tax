@@ -4,10 +4,10 @@ For a new session. The design and background are in [`PLAN.md`](PLAN.md), the re
 [`SECURITY-REVIEW.md`](SECURITY-REVIEW.md); this document says where everything is, how to test
 it and what to watch out for.
 
-**Latest step (11 November):** PR #2 (the launch site, milestones 1 to 4) was merged into `main`
-(merge commit `a65266e`). The site is then prepared for hosting on Cloudflare (decision S9):
-`app/public/_headers` sends the security headers and `app/wrangler.jsonc` describes the deploy;
-both were checked locally with wrangler and Chromium. The owner deploys it; see "Hosting".
+**Latest step (11 November):** the launch site is live on devnet at
+<https://sniper-tax-launch-devnet.majoco21.workers.dev>, on Cloudflare (decision S9), deployed from `main` on every
+push. PR #2 (milestones 1 to 4), #3 (the hosting config and security headers) and #4 (the build
+settings) are merged. See "Hosting".
 
 **Before that (11 November):** milestones 3 and 4 of the launch site are done and proven on devnet.
 Milestone 3 is the launch list and the token page, with trading: the end-to-end test makes a sniper
@@ -30,7 +30,8 @@ the same day (slot 520838510); see "Devnet".
   commit `6756dc6`). New work starts on a fresh branch from `main`.
 - PR #2 (`claude/happy-knuth-hv0t34`), the launch site with milestones 1 to 4, was merged into
   `main` on 11 November 2026 (merge commit `a65266e`).
-- The hosting config is on `claude/milestone-3-launch-site-x9b94m`, started from that `main`.
+- PR #3 (hosting config) and PR #4 (build settings), both from `claude/milestone-3-launch-site-x9b94m`,
+  were merged on 11 November. GitHub's default branch should be `main` (it was still PR #1's branch).
 - The repo is public, so the strategy metadata on `main` is reachable: Pipeline's API reports it
   `valid` since 10 November. If the repo goes private again, it turns `metadata-unreachable`;
   then host the metadata elsewhere and update the registration's URI (the router has
@@ -175,7 +176,9 @@ non-commercial use only.
   - Project name: `sniper-tax-launch-devnet` (must equal `name` in `app/wrangler.jsonc`);
   - Build command: `cd app && npm ci && npm run build`;
   - Deploy command: `npx wrangler@4.154.0 deploy --cwd app`;
-  - Preview command: `npx wrangler@4.154.0 preview --cwd app`.
+  - Version command, for other branches: `npx wrangler@4.154.0 versions upload --cwd app`. It
+    uploads a version without deploying it. The form's default, `wrangler preview`, needs Worker
+    Previews set up; without them the build of a pull request's branch failed at once.
 
   Then, under Settings → Build → Branch control, make sure the production branch is `main`.
   Cloudflare takes the repository's default branch, and on GitHub that was still PR #1's
@@ -190,8 +193,16 @@ non-commercial use only.
   npx wrangler@4.154.0 deploy
   ```
 
-- The site then runs at `https://sniper-tax-launch-devnet.<account>.workers.dev`. Check the
-  headers with `curl -sI <url> | grep -i -e content-security-policy -e x-frame-options`.
+- The site runs at **<https://sniper-tax-launch-devnet.majoco21.workers.dev>** since 11 November (first live
+  version `7f3c67c8`, built from `main` at `65af0ee` in 25 seconds). `majoco21` is the account's
+  workers.dev subdomain, chosen by the owner; changing it (Workers & Pages, "Subdomain", Change)
+  changes the site's address at once, and the old address stops working. Check the headers with
+  `curl -sI <url> | grep -i -e content-security-policy -e x-frame-options`.
+- Checked live on 11 November: every header from `_headers` arrives, `/_headers` and
+  `/wrangler.jsonc` are 404, the script is the same file a local build makes
+  (`index-Dp3tQour.js`), and in Chromium the launch list, a token page with its exact taxes and
+  the launch and creator pages load without one console error, with no sideways scrolling at
+  390 pixels; framing the site from another origin is refused.
 - A custom domain comes with the name (S7). Keep `wrangler.jsonc`'s `compatibility_date` at or
   before the date the pinned wrangler supports (4.154.0: 30 October 2026), or `wrangler dev`
   refuses to start; raise both together.
@@ -355,7 +366,7 @@ In addition, the unchanged source (commit `8bb831b`) built exactly `222ee769…`
 
 ## Open items
 
-1. **Launch site:** the plan in [`LAUNCH-SITE.md`](LAUNCH-SITE.md) is approved (the name and domain come later). Milestones 1 (the TypeScript client), 2 (the launch page), 3 (the launch list and token page, with trading) and 4 (the creator dashboard, with claims) are done and proven on devnet. Milestone 5 is under way: the hosting on Cloudflare is prepared (S9, see "Hosting") and waits for the owner's deploy; the security review of the site (how the Security-Agent repo does it is open) and the name and domain (S7) are still to decide. The site doesn't offer `sweep_protocol_fees` yet. The throwaway keys are empty (their SOL went back to the devnet wallet) and lived only in the cloud session's scratchpad, so a new devnet run needs a new key.
+1. **Launch site:** the plan in [`LAUNCH-SITE.md`](LAUNCH-SITE.md) is approved (the name and domain come later). Milestones 1 (the TypeScript client), 2 (the launch page), 3 (the launch list and token page, with trading) and 4 (the creator dashboard, with claims) are done and proven on devnet. Milestone 5 is under way: the site is live on devnet at <https://sniper-tax-launch-devnet.majoco21.workers.dev> (S9, see "Hosting"); the security review of the site (how the Security-Agent repo does it is open) and the name and domain (S7) are still to decide. The site doesn't offer `sweep_protocol_fees` yet. The throwaway keys are empty (their SOL went back to the devnet wallet) and lived only in the cloud session's scratchpad, so a new devnet run needs a new key.
 2. **Optional:** run `demo` on devnet (about 0.2 SOL) to see a full launch on the new version.
 3. **Phase 6:** the self-review is in [`SECURITY-REVIEW.md`](SECURITY-REVIEW.md). H1, H2, L1, L2, I1 and I2 are fixed. Still open: M1 and M2 (operational), L3 (display extensions) and the residual risk of a hook on the quote mint. After that, an external audit.
 4. **Before mainnet:**
