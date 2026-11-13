@@ -5,7 +5,6 @@ import { address, type Address } from '@solana/kit';
 import { TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
 import { TOKEN_2022_PROGRAM_ADDRESS } from '@solana-program/token-2022';
 import { describe, expect, it } from 'vitest';
-
 import {
     NATIVE_MINT,
     poolKeys,
@@ -14,7 +13,8 @@ import {
     taxBpsAt,
     type LaunchPool,
     type PoolKeys,
-} from '../src/client/index.js';
+} from '@majocoreborn/sniper-tax-sdk';
+
 import type { ApiTrade } from '../src/market/api.js';
 import { taxHistory } from '../src/market/history.js';
 

@@ -8,8 +8,8 @@
 // `createPool` can be run again for it with the same form.
 
 import { generateKeyPairSigner, type Address, type Signature, type TransactionSigner } from '@solana/kit';
+import { creatorQuoteAccount, type PoolKeys, type ProtocolConfig } from '@majocoreborn/sniper-tax-sdk';
 
-import { creatorQuoteAccount, type PoolKeys, type ProtocolConfig } from '../client/index.js';
 import {
     accountExists,
     balance,

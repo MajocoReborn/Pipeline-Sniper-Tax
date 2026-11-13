@@ -5,6 +5,7 @@ import { SYSTEM_PROGRAM_ADDRESS } from '@solana-program/system';
 import { TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
 import { ASSOCIATED_TOKEN_PROGRAM_ADDRESS } from '@solana-program/token-2022';
 import { describe, expect, it } from 'vitest';
+import { PIPELINE_PROGRAM_ADDRESS, pipelineFee } from '@pipeline-sol/sdk';
 
 import { MAX_TRANSACTION_SIZE, launchMessage } from '../src/launch/transactions.js';
 import { SIGNATURE_FEE } from '../src/launch/chain.js';
@@ -15,8 +16,6 @@ import {
     tradeInstructions,
     tradeSpendProblem,
 } from '../src/market/trade.js';
-import { PIPELINE_PROGRAM_ADDRESS, pipelineFee } from '../src/vendor/pipeline/index.js';
-
 import { verifiedFromVector } from './helpers.js';
 
 const trader = createNoopSigner(address('GuoMTwRcXWzFkWkdjZ3qAYGLc14UFYLfHtk4njwKTvQT'));

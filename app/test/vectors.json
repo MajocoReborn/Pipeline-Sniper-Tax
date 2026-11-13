@@ -88,7 +88,13 @@
       "pipeline_quote": "868b5b3bb62598da",
       "sweep_protocol_fees": "75e1f04b47c32c2b"
     },
+    "max_duration_secs": 1800,
+    "max_end_bps": 500,
+    "max_launch_fee_lamports": "50000000",
+    "max_protocol_tax_share_bps": 2000,
     "max_setup_lamports": "100000000",
+    "max_start_bps": 9900,
+    "min_duration_secs": 60,
     "native_mint": "So11111111111111111111111111111111111111112",
     "program_id": "EZwLuZ8mSiBoeKtbHwQK4kxCqqj4JuureT1kHpTK3i6b"
   },

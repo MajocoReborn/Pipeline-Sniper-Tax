@@ -5,7 +5,6 @@ import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from
 import type { Address, Signature } from '@solana/kit';
 import { useWalletAccountTransactionSendingSigner } from '@solana/react';
 import type { UiWalletAccount } from '@wallet-standard/react';
-
 import {
     currentTaxBps,
     secondsUntilWindowEnds,
@@ -13,7 +12,8 @@ import {
     type LaunchPool,
     type PoolKeys,
     type ProtocolConfig,
-} from '../client/index.js';
+} from '@majocoreborn/sniper-tax-sdk';
+
 import { CHAIN, PIPELINE_API_URL, explorerUrl } from '../config.js';
 import { balance, createRpc, launchCosts, readConfig, readPool, type LaunchCosts, type Rpc } from '../launch/chain.js';
 import {

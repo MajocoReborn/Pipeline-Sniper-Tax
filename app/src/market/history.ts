@@ -14,7 +14,8 @@ import {
     type LaunchPool,
     type PoolKeys,
     type Side,
-} from '../client/index.js';
+} from '@majocoreborn/sniper-tax-sdk';
+
 import type { ApiTrade } from './api.js';
 
 /** The program's clock and the block time the API reports can differ by a second or two. */

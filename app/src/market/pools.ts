@@ -8,12 +8,16 @@ import {
     isSolanaError,
     type Address,
 } from '@solana/kit';
-import { TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
-import { TOKEN_2022_PROGRAM_ADDRESS } from '@solana-program/token-2022';
+import {
+    PROGRAM_ID,
+    decodeLaunchPool,
+    verifyPoolKeys,
+    type LaunchPool,
+    type PoolKeys,
+} from '@majocoreborn/sniper-tax-sdk';
+import { decodeMint, type MintInspection } from '@pipeline-sol/sdk';
 
-import { PROGRAM_ID, decodeLaunchPool, poolKeys, type LaunchPool, type PoolKeys } from '../client/index.js';
 import type { Rpc } from '../launch/chain.js';
-import { decodeMint, type MintInspection } from '../vendor/pipeline/index.js';
 
 export type VerifiedPool = {
     address: Address;
@@ -23,34 +27,13 @@ export type VerifiedPool = {
     mint: MintInspection | null;
 };
 
-const TOKEN_PROGRAMS = [TOKEN_2022_PROGRAM_ADDRESS, TOKEN_PROGRAM_ADDRESS] as const;
 const BATCH = 100;
 /** How often, and how far apart, to ask again while the RPC node is behind `minContextSlot`. */
 const BEHIND_ATTEMPTS = 10;
 const BEHIND_WAIT_MS = 500;
 const base64 = getBase64Encoder();
 
-/** The pool's keys if `address` is the address its fields derive, with matching vaults. */
-export async function verifyPoolKeys(address: Address, pool: LaunchPool): Promise<PoolKeys | null> {
-    const params = {
-        creator: pool.creator,
-        taxStartBps: pool.taxStartBps,
-        taxEndBps: pool.taxEndBps,
-        taxDurationSecs: pool.taxDurationSecs,
-    };
-    for (const tokenProgram of TOKEN_PROGRAMS) {
-        for (const quoteProgram of TOKEN_PROGRAMS) {
-            const keys = await poolKeys(params, pool.tokenMint, tokenProgram, pool.quoteMint, quoteProgram);
-            if (keys.address !== address) {
-                return null;
-            }
-            if (keys.tokenVault === pool.tokenVault && keys.quoteVault === pool.quoteVault) {
-                return keys;
-            }
-        }
-    }
-    return null;
-}
+export { verifyPoolKeys };
 
 type Raw = { owner: Address; data: Uint8Array };
 

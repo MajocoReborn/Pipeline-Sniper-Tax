@@ -2,8 +2,7 @@
 // so the launch page and the tests share exactly the same logic.
 
 import type { Address } from '@solana/kit';
-
-import { MAX_END_BPS, isValidSchedule, type InitParams, type TaxSchedule } from '../client/index.js';
+import { MAX_END_BPS, isValidSchedule, type InitParams, type TaxSchedule } from '@majocoreborn/sniper-tax-sdk';
 
 /** Every launch on the site has a sniper tax (decision S8); the creator picks its strength. */
 export const PRESETS = {

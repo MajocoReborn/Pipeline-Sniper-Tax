@@ -1,10 +1,9 @@
 // Pipeline's API as untrusted input: real responses parse; anything malformed is dropped.
 
 import { readFileSync } from 'node:fs';
-
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { NATIVE_MINT } from '@majocoreborn/sniper-tax-sdk';
 
-import { NATIVE_MINT } from '../src/client/index.js';
 import { getTrades, listMarkets, parseMarket, parseTrade } from '../src/market/api.js';
 
 const fixture = JSON.parse(readFileSync(new URL('./fixtures/pipeline-api.json', import.meta.url), 'utf8'));

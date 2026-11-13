@@ -1,10 +1,8 @@
-# Vendored: Pipeline TypeScript SDK
+# Vendored: one file of Pipeline's TypeScript SDK
 
-These files are a copy of `sdk/ts/src` from
+The site uses Pipeline's SDK from npm (`@pipeline-sol/sdk`), except for `http.ts`
+(`boundedFetch`, a fetch with size and time limits), which the package doesn't export.
+`http.ts` is a copy of `sdk/ts/src/http.ts` from
 [MetalLegBob/pipeline](https://github.com/MetalLegBob/pipeline) at commit
-`5ad130d69e9e55420946199dfa81e6c75a8d595b` (the SDK itself last changed in `2af3f0c`), licensed
-under the Apache License 2.0 (`LICENSE-APACHE` in that repository).
-
-They are unmodified. The SDK isn't published yet (`private`, placeholder package name), so it is
-vendored here rather than installed. To update: copy `sdk/ts/src` from a newer commit, record
-the commit above, and run `npm test`.
+`ca6c37d` (release 0.1.1, the version in `package.json`), licensed under the Apache License
+2.0 (`LICENSE-APACHE` in that repository). It is unmodified.

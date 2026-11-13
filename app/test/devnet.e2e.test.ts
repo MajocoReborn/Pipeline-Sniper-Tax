@@ -15,7 +15,6 @@
 // what it has left goes back to the creator at the end.
 
 import { readFileSync } from 'node:fs';
-
 import {
     createKeyPairSignerFromBytes,
     generateKeyPairSigner,
@@ -30,8 +29,9 @@ import {
 import { getTransferSolInstruction } from '@solana-program/system';
 import { fetchMint } from '@solana-program/token-2022';
 import { describe, expect, it } from 'vitest';
+import { poolSchedule, splitGross, splitTax, taxBpsAt, type Side } from '@majocoreborn/sniper-tax-sdk';
+import { pipelineFee } from '@pipeline-sol/sdk';
 
-import { poolSchedule, splitGross, splitTax, taxBpsAt, type Side } from '../src/client/index.js';
 import { SIGNATURE_FEE, balance, confirm, launchCosts, readConfig, type Rpc } from '../src/launch/chain.js';
 import { launchAmounts, type LaunchForm } from '../src/launch/form.js';
 import { runLaunch, type LaunchMessage, type LaunchProgress } from '../src/launch/run.js';
@@ -47,7 +47,6 @@ import {
     type VerifiedPool,
 } from '../src/market/pools.js';
 import { CLOCK_MARGIN_SECS, quoteTrade, runTrade, traderAccounts, type TradeQuote } from '../src/market/trade.js';
-import { pipelineFee } from '../src/vendor/pipeline/index.js';
 import { patientRpc } from './helpers.js';
 
 const SOL = 1_000_000_000n;

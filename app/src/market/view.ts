@@ -2,8 +2,9 @@
 // image from its own metadata, price and market value from the reserves, and the checks a
 // buyer cares about from the mint's authorities and extensions.
 
+import { EXTENSION_TYPES, FLAG_DESCRIPTIONS, type Flag } from '@pipeline-sol/sdk';
+
 import { shortAddress } from '../launch/units.js';
-import { EXTENSION_TYPES, FLAG_DESCRIPTIONS, type Flag } from '../vendor/pipeline/index.js';
 import type { Reserves, TaxHistory } from './history.js';
 import type { VerifiedPool } from './pools.js';
 

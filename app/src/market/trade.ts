@@ -11,13 +11,21 @@ import {
     getSyncNativeInstruction,
 } from '@solana-program/token';
 import { getCreateAssociatedTokenIdempotentInstruction } from '@solana-program/token-2022';
+import {
+    NATIVE_MINT,
+    exactIn,
+    poolPricing,
+    quoteExactIn,
+    swapIx,
+    type Quote,
+    type Side,
+} from '@majocoreborn/sniper-tax-sdk';
+import { associatedTokenAddress, pipelineFee } from '@pipeline-sol/sdk';
 
-import { NATIVE_MINT, exactIn, poolPricing, quoteExactIn, swapIx, type Quote, type Side } from '../client/index.js';
 import { SIGNATURE_FEE, SPACE, accountExists, balance, confirm, simulate, type Rpc } from '../launch/chain.js';
 import { LaunchError, explainSimulationError, type Sender } from '../launch/run.js';
 import { launchMessage } from '../launch/transactions.js';
 import { formatSol } from '../launch/units.js';
-import { associatedTokenAddress, pipelineFee } from '../vendor/pipeline/index.js';
 import type { VerifiedPool } from './pools.js';
 
 /**

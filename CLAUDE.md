@@ -9,6 +9,9 @@
 
 ## Where to start
 
-Read [`docs/HANDOFF.md`](docs/HANDOFF.md) first: current state, commands, pitfalls and devnet
-details. The design is in [`docs/PLAN.md`](docs/PLAN.md), the security review in
-[`docs/SECURITY-REVIEW.md`](docs/SECURITY-REVIEW.md).
+Read [`docs/HANDOFF.md`](docs/HANDOFF.md) first: current state of the launch site, commands,
+pitfalls and hosting. The site's plan is in [`docs/LAUNCH-SITE.md`](docs/LAUNCH-SITE.md).
+
+The protocol (program, crates, TypeScript SDK, design and security review) lives in
+[MajocoReborn/pipeline-sniper-tax-strate](https://github.com/MajocoReborn/pipeline-sniper-tax-strate)
+since 13 November 2026; changes to the program or the SDK are made there.

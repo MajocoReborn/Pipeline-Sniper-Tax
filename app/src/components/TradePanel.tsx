@@ -6,8 +6,8 @@ import { useState, type ReactNode } from 'react';
 import type { Address, Signature } from '@solana/kit';
 import { useWalletAccountTransactionSendingSigner } from '@solana/react';
 import type { UiWalletAccount } from '@wallet-standard/react';
+import { secondsUntilWindowEnds, type Side } from '@majocoreborn/sniper-tax-sdk';
 
-import { secondsUntilWindowEnds, type Side } from '../client/index.js';
 import { CHAIN, explorerUrl } from '../config.js';
 import { SIGNATURE_FEE, SPACE, accountExists, balance, tokenBalance } from '../launch/chain.js';
 import { LaunchError } from '../launch/run.js';
