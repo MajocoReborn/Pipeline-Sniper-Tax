@@ -13,7 +13,7 @@ set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
 SDK_REPO="${SDK_REPO:-https://github.com/MajocoReborn/pipeline-sniper-tax-strategy.git}"
-SDK_COMMIT="${SDK_COMMIT:-3367d67b8226be63c7f7648cca5f6765bef94708}"
+SDK_COMMIT="${SDK_COMMIT:-8dba1e00801a7cf734370f25a93a0b1cbf4e0e18}"
 
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
