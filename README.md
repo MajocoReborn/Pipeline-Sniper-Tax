@@ -6,8 +6,8 @@ follow launches and their live tax, trade, and claim the tax as a creator.
 
 > **The protocol moved.** The on-chain program, its crates and tests, the TypeScript SDK, the
 > design and the security review now live in
-> **[MajocoReborn/pipeline-sniper-tax-strate](https://github.com/MajocoReborn/pipeline-sniper-tax-strate)**,
-> with a [guide for launchpads](https://github.com/MajocoReborn/pipeline-sniper-tax-strate/blob/main/docs/INTEGRATION.md).
+> **[MajocoReborn/pipeline-sniper-tax-strategy](https://github.com/MajocoReborn/pipeline-sniper-tax-strategy)**,
+> with a [guide for launchpads](https://github.com/MajocoReborn/pipeline-sniper-tax-strategy/blob/main/docs/INTEGRATION.md).
 > This repository keeps the site, which uses that SDK. History before the move (up to
 > `7b7517c`) is here.
 

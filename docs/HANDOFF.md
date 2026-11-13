@@ -3,7 +3,7 @@
 For a new session. This repository holds the launch site. **The protocol (the on-chain
 program, its crates and tests, the TypeScript SDK, the design and the security review) moved
 on 13 November to
-[MajocoReborn/pipeline-sniper-tax-strate](https://github.com/MajocoReborn/pipeline-sniper-tax-strate)**;
+[MajocoReborn/pipeline-sniper-tax-strategy](https://github.com/MajocoReborn/pipeline-sniper-tax-strategy)**;
 read its `docs/HANDOFF.md` for the program, its build, its devnet deployment and its pitfalls.
 This document covers the site: where everything is, how to test it and what to watch out for.
 The site's plan and progress are in [`LAUNCH-SITE.md`](LAUNCH-SITE.md).

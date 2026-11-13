@@ -17,7 +17,7 @@ jobs:
         with:
           node-version: 22
 
-      # The SDK comes from MajocoReborn/pipeline-sniper-tax-strate at a pinned commit, with
+      # The SDK comes from MajocoReborn/pipeline-sniper-tax-strategy at a pinned commit, with
       # the Rust client's test vectors from the same commit.
       - name: The vendored SDK and the vectors are that commit's
         run: scripts/update-sdk.sh --check

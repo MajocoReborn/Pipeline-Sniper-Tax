@@ -13,5 +13,5 @@ Read [`docs/HANDOFF.md`](docs/HANDOFF.md) first: current state of the launch sit
 pitfalls and hosting. The site's plan is in [`docs/LAUNCH-SITE.md`](docs/LAUNCH-SITE.md).
 
 The protocol (program, crates, TypeScript SDK, design and security review) lives in
-[MajocoReborn/pipeline-sniper-tax-strate](https://github.com/MajocoReborn/pipeline-sniper-tax-strate)
+[MajocoReborn/pipeline-sniper-tax-strategy](https://github.com/MajocoReborn/pipeline-sniper-tax-strategy)
 since 13 November 2026; changes to the program or the SDK are made there.

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The site's copy of the TypeScript SDK (`@majocoreborn/sniper-tax-sdk`), until it is on npm.
 #
-# The SDK lives in MajocoReborn/pipeline-sniper-tax-strate (`sdk/`). This script builds its
+# The SDK lives in MajocoReborn/pipeline-sniper-tax-strategy (`sdk/`). This script builds its
 # package at a pinned commit and puts it in app/vendor/, with the Rust client's test vectors
 # from the same commit in app/test/vectors.json. `npm pack` is reproducible, so the result is
 # byte for byte what that commit gives.
@@ -12,8 +12,8 @@
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
-SDK_REPO="${SDK_REPO:-https://github.com/MajocoReborn/pipeline-sniper-tax-strate.git}"
-SDK_COMMIT="${SDK_COMMIT:-41f4fd24945222d927ab3b4147ae89972b3dcd44}"
+SDK_REPO="${SDK_REPO:-https://github.com/MajocoReborn/pipeline-sniper-tax-strategy.git}"
+SDK_COMMIT="${SDK_COMMIT:-3367d67b8226be63c7f7648cca5f6765bef94708}"
 
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
