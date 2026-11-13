@@ -24,10 +24,10 @@ from `main` on every push. Milestones 3 (the launch list and the token page, wit
 ## Repo and branch
 
 - Repo: `MajocoReborn/Pipeline-Sniper-Tax`. New work starts on a fresh branch from `main`.
-- The repo is public. The router registration's metadata URI still points at
-  `metadata/sniper-tax.devnet.json` on this repository's `main`, so keep that file (and the
-  repo public) until the protocol's devnet tool has pointed the registration at the protocol
-  repository (`sniper-tax-devnet metadata`, see its handoff). Then delete it here.
+- The router registration's metadata URI points at the protocol repository since 13
+  November (`sniper-tax-devnet metadata`, transaction
+  `3k6KzNwkDMrd81kJq5s1vjx8bS2aSkqc6R6zqJ7RssGsdFPBb8VCp2yuRNKEZzrkv2SLHT34tQYyWNcvYhTre8Bt`),
+  so this repository no longer holds the metadata.
 - CI (`.github/workflows/ci.yml`): `checks` (no keypairs; the vendored SDK and the vectors are
   the pinned commit's) and `app` (typecheck, prettier, vitest, build).
 
@@ -40,7 +40,6 @@ from `main` on every push. Milestones 3 (the launch list and the token page, wit
 | `app/src/vendor/pipeline/http.ts` | Pipeline's `boundedFetch`, unmodified; the npm package doesn't export it (`VENDORED.md`) |
 | `app/test/vectors.json` | Test vectors from the protocol's Rust client, at the SDK's pinned commit |
 | `scripts/update-sdk.sh` | Rebuilds `app/vendor/` and the vectors at the pinned commit, or checks them (`--check`) |
-| `metadata/sniper-tax.devnet.json` | The strategy metadata the registration still points at (see above) |
 | `docs/LAUNCH-SITE.md` | Plan for the launch website (approved), with its progress |
 
 ## Build and test
@@ -199,7 +198,5 @@ reference:
    session's scratchpad, so a new devnet run needs a new key.
 2. **The SDK on npm:** once `@majocoreborn/sniper-tax-sdk` is published, install it from npm
    and drop `app/vendor/` (see its `README.md`).
-3. **The metadata:** delete `metadata/` here once the registration points at the protocol
-   repository.
-4. **A site fee:** Pipeline's integrator fee is the way a front end earns on the trades it
+3. **A site fee:** Pipeline's integrator fee is the way a front end earns on the trades it
    routes; the SDK's `exactIn`/`swapIx` take one. See the protocol's `docs/INTEGRATION.md`.

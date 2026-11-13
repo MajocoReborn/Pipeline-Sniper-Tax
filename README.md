@@ -22,7 +22,6 @@ follow launches and their live tax, trade, and claim the tax as a creator.
 | `app/vendor/` | The protocol's TypeScript SDK, `@majocoreborn/sniper-tax-sdk`, pinned to a commit of the protocol repository until it is on npm |
 | `docs/HANDOFF.md` | Current state of the site, commands, pitfalls, hosting and devnet runs |
 | `docs/LAUNCH-SITE.md` | Plan for the site (approved), with its progress |
-| `metadata/sniper-tax.devnet.json` | The strategy metadata the router registration still points at; kept until the registration points at the protocol repository |
 | `scripts/update-sdk.sh` | Rebuilds the vendored SDK at its pinned commit, or checks it (`--check`) |
 
 ## Build and test
