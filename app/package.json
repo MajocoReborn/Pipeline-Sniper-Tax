@@ -2,7 +2,7 @@
     "name": "sniper-tax-app",
     "version": "0.1.0",
     "private": true,
-    "description": "Launch site for the sniper-tax Pipeline strategy, and its TypeScript client",
+    "description": "Launch site for the sniper-tax Pipeline strategy",
     "license": "Apache-2.0",
     "type": "module",
     "engines": {
@@ -14,11 +14,13 @@
         "preview": "vite preview",
         "typecheck": "tsc -p tsconfig.json --noEmit",
         "test": "npm run typecheck && npm run format:check && vitest run",
-        "vectors": "cargo run -q -p sniper-tax-client --example ts_vectors > test/vectors.json",
         "format": "prettier --write .",
-        "format:check": "prettier --check ."
+        "format:check": "prettier --check .",
+        "update-sdk": "../scripts/update-sdk.sh"
     },
     "dependencies": {
+        "@majocoreborn/sniper-tax-sdk": "file:vendor/majocoreborn-sniper-tax-sdk-0.1.0.tgz",
+        "@pipeline-sol/sdk": "0.1.1",
         "@solana-program/system": "0.16.0",
         "@solana-program/token": "0.18.0",
         "@solana-program/token-2022": "0.20.0",

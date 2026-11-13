@@ -8,8 +8,8 @@ import {
     getCloseAccountInstruction,
     getCreateAssociatedTokenIdempotentInstruction as getCreateClassicAtaInstruction,
 } from '@solana-program/token';
+import { NATIVE_MINT, PROGRAM_ID, claimTaxIx, creatorQuoteAccount } from '@majocoreborn/sniper-tax-sdk';
 
-import { NATIVE_MINT, PROGRAM_ID, claimTaxIx, creatorQuoteAccount } from '../client/index.js';
 import { SIGNATURE_FEE, SPACE, accountExists, balance, confirm, simulate, type Rpc } from '../launch/chain.js';
 import { LaunchError, explainSimulationError, type Sender } from '../launch/run.js';
 import { launchMessage } from '../launch/transactions.js';

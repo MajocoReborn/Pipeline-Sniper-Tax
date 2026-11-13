@@ -43,7 +43,6 @@ import {
     getUpdateTokenMetadataUpdateAuthorityInstruction,
     TOKEN_2022_PROGRAM_ADDRESS,
 } from '@solana-program/token-2022';
-
 import {
     NATIVE_MINT,
     createMarketIx,
@@ -53,7 +52,8 @@ import {
     launchIx,
     poolKeys,
     type PoolKeys,
-} from '../client/index.js';
+} from '@majocoreborn/sniper-tax-sdk';
+
 import { TOKEN_DECIMALS, TOKEN_SUPPLY, initParams, launchAmounts, type LaunchForm } from './form.js';
 
 /** Solana's limit for a serialised transaction. */

@@ -3,8 +3,8 @@
 // chain; the API adds only trades and volume.
 
 import { useState } from 'react';
+import { NATIVE_MINT, currentTaxBps, secondsUntilWindowEnds } from '@majocoreborn/sniper-tax-sdk';
 
-import { NATIVE_MINT, currentTaxBps, secondsUntilWindowEnds } from '../client/index.js';
 import { formatAge, formatDuration, formatSignificant, formatSol } from '../launch/units.js';
 import { listMarkets, type ApiMarket, type MarketSort } from '../market/api.js';
 import { readVerifiedPools, type VerifiedPool } from '../market/pools.js';

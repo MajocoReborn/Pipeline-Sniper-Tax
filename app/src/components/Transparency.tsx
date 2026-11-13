@@ -2,10 +2,11 @@
 // where the supply is, the tax schedule, the token's authorities and extensions, and whether
 // the program can still change. All of it is read from the chain, not from the API.
 
+import type { ProgramInspection } from '@pipeline-sol/sdk';
+
 import { formatBps, formatDuration, formatSol, formatUnits } from '../launch/units.js';
 import type { VerifiedPool } from '../market/pools.js';
 import { extensionNames, trustChecks, type TokenView } from '../market/view.js';
-import type { ProgramInspection } from '../vendor/pipeline/index.js';
 import { AddressLink, ExternalLink } from './common.js';
 
 const REPOSITORY = 'https://github.com/MajocoReborn/Pipeline-Sniper-Tax';

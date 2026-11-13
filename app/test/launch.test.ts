@@ -4,8 +4,9 @@ import { address, createNoopSigner, generateKeyPairSigner, getU64Codec, type Ins
 import { TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
 import { TOKEN_2022_PROGRAM_ADDRESS } from '@solana-program/token-2022';
 import { describe, expect, it } from 'vitest';
+import { INSTRUCTION_DISCRIMINATORS, NATIVE_MINT, PROGRAM_ID } from '@majocoreborn/sniper-tax-sdk';
+import { PIPELINE_PROGRAM_ADDRESS } from '@pipeline-sol/sdk';
 
-import { INSTRUCTION_DISCRIMINATORS, NATIVE_MINT, PROGRAM_ID } from '../src/client/index.js';
 import {
     MAX_NAME_BYTES,
     MAX_URI_BYTES,
@@ -27,7 +28,6 @@ import {
 } from '../src/launch/transactions.js';
 import { launchCosts, transactionCost, type Rpc } from '../src/launch/chain.js';
 import { explainSimulationError, spendProblem } from '../src/launch/run.js';
-import { PIPELINE_PROGRAM_ADDRESS } from '../src/vendor/pipeline/index.js';
 
 const creator = createNoopSigner(address('9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin'));
 const treasury = address('CUiq3QQbXMsrgCpiN423zr2NTrdfPRuGUy9EQKQ6CGap');

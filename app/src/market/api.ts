@@ -4,8 +4,8 @@
 // trade does (the pool, its tax, its addresses) is read from the chain instead.
 
 import { isAddress, type Address } from '@solana/kit';
+import { PROGRAM_ID } from '@majocoreborn/sniper-tax-sdk';
 
-import { PROGRAM_ID } from '../client/index.js';
 import { PIPELINE_API_URL } from '../config.js';
 import { boundedFetch } from '../vendor/pipeline/http.js';
 

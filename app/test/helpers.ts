@@ -1,7 +1,7 @@
-// Shared fixtures for the tests: the Rust client's vectors, and pools built from them.
+// Shared fixtures for the tests: the Rust client's vectors (from the SDK's pinned commit, see
+// scripts/update-sdk.sh), and pools built from them.
 
 import { readFileSync } from 'node:fs';
-
 import {
     SOLANA_ERROR__RPC__TRANSPORT_HTTP_ERROR,
     address,
@@ -11,8 +11,8 @@ import {
     isSolanaError,
     type Address,
 } from '@solana/kit';
+import type { LaunchPool } from '@majocoreborn/sniper-tax-sdk';
 
-import type { LaunchPool } from '../src/client/index.js';
 import { RPC_URL } from '../src/config.js';
 import type { Rpc } from '../src/launch/chain.js';
 import { verifyPoolKeys, type VerifiedPool } from '../src/market/pools.js';

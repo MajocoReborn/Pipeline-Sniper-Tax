@@ -5,8 +5,9 @@
 import { useMemo, useRef } from 'react';
 import type { Address } from '@solana/kit';
 import type { UiWalletAccount } from '@wallet-standard/react';
+import { PROGRAM_ID, creatorTokenAccount, currentTaxBps, secondsUntilWindowEnds } from '@majocoreborn/sniper-tax-sdk';
+import { inspectProgram, marketPda } from '@pipeline-sol/sdk';
 
-import { PROGRAM_ID, creatorTokenAccount, currentTaxBps, secondsUntilWindowEnds } from '../client/index.js';
 import { tokenBalance } from '../launch/chain.js';
 import { formatBps, formatDuration, formatSignificant, formatSol } from '../launch/units.js';
 import { getTrades } from '../market/api.js';
@@ -14,7 +15,6 @@ import { taxHistory } from '../market/history.js';
 import { readVerifiedPool } from '../market/pools.js';
 import { tokenView, valueSeries } from '../market/view.js';
 import { href } from '../route.js';
-import { inspectProgram, marketPda } from '../vendor/pipeline/index.js';
 import { AddressLink, Loading, Tax, TokenImage } from './common.js';
 import { siteRpc, useChainNow, usePolled } from './hooks.js';
 import { PriceChart } from './PriceChart.js';

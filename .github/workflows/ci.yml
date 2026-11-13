@@ -5,70 +5,22 @@ on:
   pull_request:
 
 jobs:
-  build-and-test:
+  checks:
     runs-on: ubuntu-24.04
-    env:
-      # Test binaries link every Solana crate; without debug info they're a fraction of
-      # the size.
-      CARGO_PROFILE_DEV_DEBUG: "0"
-      CARGO_INCREMENTAL: "0"
     steps:
       - uses: actions/checkout@v4
-
-      - name: Cache cargo and Solana tools
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            ~/.cargo/bin/cargo-build-sbf
-            ~/.cargo/bin/cargo-test-sbf
-            ~/.cache/solana
-            target
-            programs/target
-            test-programs/target
-          key: ${{ runner.os }}-v1-${{ hashFiles('Cargo.lock', 'programs/Cargo.lock', 'test-programs/Cargo.lock', 'rust-toolchain.toml') }}
-          restore-keys: ${{ runner.os }}-v1-
 
       - name: No keypairs in the repository
         run: scripts/check-no-keypairs.sh
 
-      - name: Install cargo-build-sbf (sBPF v3 toolchain)
-        run: |
-          if ! cargo build-sbf --version 2>/dev/null | grep -q "4.6.0"; then
-            cargo install cargo-build-sbf --version 4.6.0 --locked --force
-          fi
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
-      - name: Check formatting
-        run: |
-          cargo fmt --all -- --check
-          (cd programs && cargo fmt --all -- --check)
-          (cd test-programs && cargo fmt --all -- --check)
-
-      - name: Lint
-        run: |
-          cargo clippy --workspace --all-targets -- -D warnings
-          (cd programs && cargo clippy --all-targets -- -D warnings)
-          (cd test-programs && cargo clippy --all-targets -- -D warnings)
-
-      - name: Build the program
-        working-directory: programs
-        run: cargo build-sbf
-
-      - name: Build the test programs
-        working-directory: test-programs
-        run: cargo build-sbf
-
-      - name: Fetch the Pipeline router from devnet (pinned)
-        run: scripts/fetch-pipeline-router.sh
-
-      - name: Test
-        run: cargo test --workspace
-
-      - name: The TypeScript client's test vectors are up to date
-        run: |
-          cargo run -q -p sniper-tax-client --example ts_vectors > app/test/vectors.json
-          git diff --exit-code app/test/vectors.json
+      # The SDK comes from MajocoReborn/pipeline-sniper-tax-strategy at a pinned commit, with
+      # the Rust client's test vectors from the same commit.
+      - name: The vendored SDK and the vectors are that commit's
+        run: scripts/update-sdk.sh --check
 
   app:
     runs-on: ubuntu-24.04

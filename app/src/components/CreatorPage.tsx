@@ -6,8 +6,8 @@ import { useRef, useState } from 'react';
 import type { Signature } from '@solana/kit';
 import { useWalletAccountTransactionSendingSigner } from '@solana/react';
 import type { UiWalletAccount } from '@wallet-standard/react';
+import { currentTaxBps, secondsUntilWindowEnds } from '@majocoreborn/sniper-tax-sdk';
 
-import { currentTaxBps, secondsUntilWindowEnds } from '../client/index.js';
 import { CHAIN, explorerUrl } from '../config.js';
 import { LaunchError } from '../launch/run.js';
 import { formatAge, formatBps, formatDuration, formatSol } from '../launch/units.js';

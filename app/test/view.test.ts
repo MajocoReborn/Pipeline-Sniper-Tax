@@ -2,13 +2,12 @@
 
 import { address } from '@solana/kit';
 import { describe, expect, it } from 'vitest';
+import { NATIVE_MINT } from '@majocoreborn/sniper-tax-sdk';
+import type { MintInspection } from '@pipeline-sol/sdk';
 
-import { NATIVE_MINT } from '../src/client/index.js';
 import type { ApiTrade } from '../src/market/api.js';
 import { taxHistory } from '../src/market/history.js';
 import { tokenView, trustChecks, valueSeries } from '../src/market/view.js';
-import type { MintInspection } from '../src/vendor/pipeline/index.js';
-
 import { verifiedFromVector } from './helpers.js';
 
 const someone = address('GuoMTwRcXWzFkWkdjZ3qAYGLc14UFYLfHtk4njwKTvQT');

@@ -11,7 +11,6 @@ import {
 import { TOKEN_PROGRAM_ADDRESS } from '@solana-program/token';
 import { ASSOCIATED_TOKEN_PROGRAM_ADDRESS } from '@solana-program/token-2022';
 import { describe, expect, it } from 'vitest';
-
 import {
     ACCOUNT_DISCRIMINATORS,
     NATIVE_MINT,
@@ -20,7 +19,8 @@ import {
     creatorQuoteAccount,
     getLaunchPoolCodec,
     type LaunchPool,
-} from '../src/client/index.js';
+} from '@majocoreborn/sniper-tax-sdk';
+
 import { SIGNATURE_FEE, SPACE, type Rpc } from '../src/launch/chain.js';
 import {
     POOL_CREATOR_OFFSET,
@@ -29,7 +29,6 @@ import {
     claimSpendProblem,
     creatorPools,
 } from '../src/market/creator.js';
-
 import { poolFromVector, vectors, verifiedFromVector } from './helpers.js';
 
 const fromHex = (hex: string) => Uint8Array.from(hex.match(/../g)!.map((b) => parseInt(b, 16)));

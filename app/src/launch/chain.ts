@@ -12,14 +12,14 @@ import {
     type Signature,
 } from '@solana/kit';
 import { extension, getTokenSize } from '@solana-program/token-2022';
-
 import {
     configAddress,
     decodeLaunchPool,
     decodeProtocolConfig,
     type LaunchPool,
     type ProtocolConfig,
-} from '../client/index.js';
+} from '@majocoreborn/sniper-tax-sdk';
+
 import { RPC_URL } from '../config.js';
 import { mintSizes, type launchMessage } from './transactions.js';
 import type { LaunchForm } from './form.js';
