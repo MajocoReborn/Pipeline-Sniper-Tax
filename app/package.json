@@ -19,7 +19,7 @@
         "update-sdk": "../scripts/update-sdk.sh"
     },
     "dependencies": {
-        "@majocoreborn/sniper-tax-sdk": "file:vendor/majocoreborn-sniper-tax-sdk-0.1.0.tgz",
+        "@majocoreborn/sniper-tax-sdk": "file:vendor/majocoreborn-sniper-tax-sdk-0.2.0.tgz",
         "@pipeline-sol/sdk": "0.1.1",
         "@solana-program/system": "0.16.0",
         "@solana-program/token": "0.18.0",

@@ -141,7 +141,10 @@ function CreatorRow({
             </span>
             <span className="launch-stat">
                 <span className="big">{formatSol(pool.accruedTaxQuote, 9)} SOL</span>
-                <span className="muted">unclaimed, your {formatBps(10_000 - pool.protocolTaxShareBps)} of the tax</span>
+                <span className="muted">
+                    unclaimed, your {formatBps(10_000 - pool.protocolTaxShareBps)} of the tax
+                    {pool.launchSlot > 0n ? ' after the launch block' : ''}
+                </span>
             </span>
             <ClaimButton verified={verified} signer={signer} onClaimed={onClaimed} />
         </li>

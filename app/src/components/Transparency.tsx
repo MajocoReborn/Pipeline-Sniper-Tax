@@ -60,7 +60,12 @@ export function Transparency({
                 <dt>After that</dt>
                 <dd>{formatBps(pool.taxEndBps)} on buys, for good; sells and the creator's own buys pay none</dd>
                 <dt>Tax split</dt>
-                <dd>{formatBps(10_000 - pool.protocolTaxShareBps)} to the creator, the rest to the protocol</dd>
+                <dd>
+                    {formatBps(10_000 - pool.protocolTaxShareBps)} to the creator, the rest to the protocol
+                    {pool.launchSlot > 0n
+                        ? `; the tax on buys in the launch block (slots ${pool.launchSlot} and ${pool.launchSlot + 1n}) all to the protocol`
+                        : ''}
+                </dd>
                 <dt>Unclaimed tax</dt>
                 <dd>
                     {formatSol(pool.accruedTaxQuote, 6)} SOL for the creator, {formatSol(pool.accruedProtocolQuote, 6)}{' '}

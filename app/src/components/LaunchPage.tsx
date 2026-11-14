@@ -297,7 +297,7 @@ function Preview({
             <p className="muted">
                 Buys pay the tax; sells and your own buys don't.
                 {config
-                    ? ` ${formatBps(config.protocolTaxShareBps)} of the tax goes to the protocol, the rest to you.`
+                    ? ` ${formatBps(config.protocolTaxShareBps)} of the tax goes to the protocol, the rest to you, except in the launch block: the tax on buys in the launch's slot and the next (bundled snipes) all goes to the protocol.`
                     : null}
             </p>
 

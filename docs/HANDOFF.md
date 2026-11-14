@@ -8,7 +8,20 @@ read its `docs/HANDOFF.md` for the program, its build, its devnet deployment and
 This document covers the site: where everything is, how to test it and what to watch out for.
 The site's plan and progress are in [`LAUNCH-SITE.md`](LAUNCH-SITE.md).
 
-**Latest step (13 November):** the site uses the protocol's SDK (`@majocoreborn/sniper-tax-sdk`)
+**Latest step (14 November):** the protocol's revenue model B14 is live on devnet: 70% of the
+tax to the creator and 30% to the protocol for pools created from now on, and the tax on buys
+in the launch block (the launch slot and the next) all to the protocol. The site follows it
+with SDK 0.2.0 (pinned to the protocol repository's `9d454a0`):
+
+- the launch page, the token page's transparency card and the creator dashboard say how the
+  tax is split, including the launch block (`pool.launchSlot`; pools launched before have 0
+  and keep their split);
+- the devnet end-to-end test splits each trade's tax with `protocolShareAt` and the trade's
+  slot, so its check against the pool's accrued totals holds in the launch block too;
+- what a trader pays and receives is unchanged, so quotes, trades and the per-trade tax walk
+  are untouched.
+
+**Before that (13 November):** the site uses the protocol's SDK (`@majocoreborn/sniper-tax-sdk`)
 instead of its own copy of the client (`app/src/client`, removed), and Pipeline's published
 `@pipeline-sol/sdk` 0.1.1 instead of a vendored copy (only `http.ts`, which the package
 doesn't export, is still vendored). Until the SDK is on npm it is installed from
@@ -154,8 +167,8 @@ reference:
 |---|---|
 | Program | `EZwLuZ8mSiBoeKtbHwQK4kxCqqj4JuureT1kHpTK3i6b` (registered with the Pipeline router) |
 | Upgrade authority, config admin and treasury | `CUiq3QQbXMsrgCpiN423zr2NTrdfPRuGUy9EQKQ6CGap`: a wallet only for devnet, created locally by the owner (7.0 devnet SOL on 10 November). Until 10 November all three were on the owner's general wallet `DEwdb…N8tYn`, which now has no role here |
-| Version on devnet | sha256 `9f24dafa0168585de8e15a519a178ed14e6e2bb7d3f8443862eff1db6379f7cd`, upgraded on 10 November 2026 at slot 520838510 (signature `3QJQDcHTB1dmS3YDvwz1KPPQ83eZi9yuzxigk8Ymw8pfWWzmpmN1seVdd7FfnhEDCpojaT5S4cCAQSYbeMURW2Vc`). Before that: `222ee769…` (slot 520494490) |
-| Config | `6wCct5q2tQ2WGfbtLcEzaH756aGnkMuSnnexaHmquL93`: 10% tax share, 0.01 SOL launch fee. `pending_admin` is empty (checked after the upgrade) |
+| Version on devnet | sha256 `db635b29f127a8b249e3b4a83693482abec03cf171a4b3783da0c3cec818e24f` (B14), upgraded on 14 November 2026 at slot 522277672. Before that: `9f24dafa…` (slot 520838510) |
+| Config | `6wCct5q2tQ2WGfbtLcEzaH756aGnkMuSnnexaHmquL93`: 30% tax share since 14 November (pools created before keep 10%), 0.01 SOL launch fee. `pending_admin` is empty |
 | Demo pool | `GeajhDYc24MyRecNv1a69nSsa2kdUtwbhLec6xpqVG3B` |
 
 **Launches from the site (10 November).** The first launches built by the site's code, paid by a throwaway key (`5frqE7XgGfsz6bmjCK4ABpkChuGJEsFcZSURNxL53vve`, funded with 0.4 devnet SOL from the devnet wallet; its key was never in the repository):
