@@ -88,7 +88,7 @@ The site builds transactions that move users' money, so:
 
 ## 6. Revenue
 
-- What exists: 10% of the sniper tax and the 0.01 SOL launch fee, both in the program.
+- What exists: 10% of the sniper tax and the 0.01 SOL launch fee, both in the program. Since 14 November (the protocol's decision B14): 30% of the tax, and all of the tax on buys in the launch block (the launch slot and the next); the site's texts say so.
 - **New option: a site fee per trade.** Pipeline's swap has an optional integrator fee that the trader signs; it goes to an account of our choice. It has no cap in the router, so the site must show it. It applies only to trades made through our site; other front-ends can still trade our pools without it. That keeps the "not extractive" story honest: a small, visible fee for the service, not a hidden one in the program.
 
 ## 7. Milestones

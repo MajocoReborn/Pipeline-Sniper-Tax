@@ -29,7 +29,7 @@ import {
 import { getTransferSolInstruction } from '@solana-program/system';
 import { fetchMint } from '@solana-program/token-2022';
 import { describe, expect, it } from 'vitest';
-import { poolSchedule, splitGross, splitTax, taxBpsAt, type Side } from '@majocoreborn/sniper-tax-sdk';
+import { poolSchedule, protocolShareAt, splitGross, splitTax, taxBpsAt, type Side } from '@majocoreborn/sniper-tax-sdk';
 import { pipelineFee } from '@pipeline-sol/sdk';
 
 import { SIGNATURE_FEE, balance, confirm, launchCosts, readConfig, type Rpc } from '../src/launch/chain.js';
@@ -103,7 +103,8 @@ async function indexedTrades(market: VerifiedPool['keys']['market'], signatures:
 /**
  * The tax history of the pool as it is now. Every listed trade must be accounted for, back to
  * the reserves at launch, and the creator's and protocol's parts of the tax of each trade must
- * add up to exactly what the pool has accrued (nothing has been claimed yet).
+ * add up to exactly what the pool has accrued (nothing has been claimed yet). A trade in the
+ * launch block (the launch slot and the next) gives the protocol all of its tax.
  */
 function checkHistory(verified: VerifiedPool, trades: ApiTrade[], atLaunch: Reserves) {
     const { pool, keys } = verified;
@@ -114,7 +115,7 @@ function checkHistory(verified: VerifiedPool, trades: ApiTrade[], atLaunch: Rese
     let protocol = 0n;
     for (const t of history.trades) {
         expect(t.taxBps, `rate of ${t.trade.signature}`).not.toBeNull();
-        const shares = splitTax(t.tax!, pool.protocolTaxShareBps);
+        const shares = splitTax(t.tax!, protocolShareAt(pool.protocolTaxShareBps, pool.launchSlot, t.trade.slot));
         creator += shares.creator;
         protocol += shares.protocol;
     }

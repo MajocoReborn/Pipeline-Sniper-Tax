@@ -44,7 +44,8 @@ function pool(fields: Partial<LaunchPool>): LaunchPool {
         protocolTaxShareBps: 1_000,
         launchFeeLamports: 10_000_000n,
         launchTs: 0n,
-        reserved: new Uint8Array(64),
+        launchSlot: 0n,
+        reserved: new Uint8Array(56),
         ...fields,
     };
 }

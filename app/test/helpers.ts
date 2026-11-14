@@ -42,7 +42,8 @@ export function poolFromVector(v: (typeof vectors.pools)[number]): { address: Ad
             protocolTaxShareBps: 1_000,
             launchFeeLamports: 0n,
             launchTs: 0n,
-            reserved: new Uint8Array(64),
+            launchSlot: 0n,
+            reserved: new Uint8Array(56),
         },
     };
 }
